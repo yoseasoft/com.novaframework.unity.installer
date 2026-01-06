@@ -42,9 +42,15 @@
     </package>
     <package name="com.novaframework.unity.protobuf" displayName="NovaFramework.Protobuf" title="Protobuf核心库">
         <git-repository url="https://github.com/yoseasoft/com.novaframework.unity.protobuf.git"/>
+        <repulsions>
+            <reference-package name="com.novaframework.unity.streambuf"/>
+        </repulsions>
     </package>
     <package name="com.novaframework.unity.streambuf" displayName="NovaFramework.Streambuf" title="Streambuf核心库">
         <git-repository url="https://github.com/yoseasoft/com.novaframework.unity.streambuf.git"/>
+        <repulsions>
+            <reference-package name="com.novaframework.unity.protobuf"/>
+        </repulsions>
     </package>
     <package name="com.novaframework.unity.fairygui" displayName="NovaFramework.FairyGUI" title="FairyGUI核心库">
         <git-repository url="https://github.com/yoseasoft/com.novaframework.unity.litjson.git"/>
@@ -81,6 +87,9 @@
         <dependencies>
             <reference-package name="com.novaframework.unity.protobuf"/>
         </dependencies>
+        <repulsions>
+            <reference-package name="com.gameframework.unity.module.protocol.streambuf"/>
+        </repulsions>
     </package>
     <package name="com.gameframework.unity.module.protocol.streambuf"
              displayName="GameFramework.Module.Protocol.Streambuf"
@@ -91,6 +100,9 @@
         <dependencies>
             <reference-package name="com.novaframework.unity.streambuf"/>
         </dependencies>
+        <repulsions>
+            <reference-package name="com.gameframework.unity.module.protocol.protobuf"/>
+        </repulsions>
     </package>
     <package name="com.gameframework.unity.module.view.fairygui"
              displayName="GameFramework.Module.View.FairyGUI"
@@ -110,6 +122,7 @@
         <assembly-definition name="Game.Module.View.Ugui"/>
     </package>
 
+    <!-- 业务定制库 -->
     <package name="com.gameframework.unity.module.asset.namesearcher"
              displayName="GameFramework.Module.Asset.NameSearcher"
              title="Goo资产名称检索器"

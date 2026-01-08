@@ -62,7 +62,7 @@
              title="Nova教程库"
              description="针对Nova框架的特性以及调度方式，提供一些教程案例作为使用入门的参考">
         <git-repository url="https://github.com/yoseasoft/com.gameframework.unity.sample.git"/>
-        <assembly-definition name="Game.Sample"/>
+        <assembly-definition name="Game.Sample" tag="Compile,Tutorial"/>
     </package>
 
     <!-- 游戏启动器 -->
@@ -109,7 +109,7 @@
              title="FairyGUI服务模块"
              description="封装FairyGUI窗口加载及组件访问服务，对外提供UI操作的便捷访问接口">
         <git-repository url="https://github.com/yoseasoft/com.gameframework.unity.module.view.fairygui.git"/>
-        <assembly-definition name="Game.Module.View.Fairygui"/>
+        <assembly-definition name="Game.Module.View.Fairygui" tag="Compile"/>
         <dependencies>
             <reference-package name="com.novaframework.unity.fairygui"/>
         </dependencies>

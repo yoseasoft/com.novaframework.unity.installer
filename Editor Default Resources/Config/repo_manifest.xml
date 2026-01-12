@@ -28,31 +28,45 @@
     </package>
 
     <!-- 第三方工具库 -->
-    <package name="com.novaframework.unity.unitask" displayName="NovaFramework.UniTask" title="UniTask核心库">
+    <package name="com.novaframework.unity.unitask"
+             displayName="NovaFramework.UniTask"
+             title="UniTask工具库">
         <git-repository url="%REPO_URL%/com.novaframework.unity.unitask.git"/>
     </package>
-    <package name="com.novaframework.unity.litjson" displayName="NovaFramework.LitJson" title="LitJson核心库">
+    <package name="com.novaframework.unity.litjson"
+             displayName="NovaFramework.LitJson"
+             title="LitJson工具库">
         <git-repository url="%REPO_URL%/com.novaframework.unity.litjson.git"/>
     </package>
-    <package name="com.novaframework.unity.sharpziplib" displayName="NovaFramework.SharpZipLib" title="SharpZipLib核心库">
+    <package name="com.novaframework.unity.sharpziplib"
+             displayName="NovaFramework.SharpZipLib"
+             title="SharpZipLib工具库">
         <git-repository url="%REPO_URL%/com.novaframework.unity.sharpziplib.git"/>
     </package>
-    <package name="com.novaframework.unity.luban" displayName="NovaFramework.Luban" title="Luban核心库">
+    <package name="com.novaframework.unity.luban"
+             displayName="NovaFramework.Luban"
+             title="Luban工具库">
         <git-repository url="%REPO_URL%/com.novaframework.unity.luban.git"/>
     </package>
-    <package name="com.novaframework.unity.protobuf" displayName="NovaFramework.Protobuf" title="Protobuf核心库">
+    <package name="com.novaframework.unity.protobuf"
+             displayName="NovaFramework.Protobuf"
+             title="Protobuf工具库">
         <git-repository url="%REPO_URL%/com.novaframework.unity.protobuf.git"/>
         <repulsions>
             <reference-package>com.novaframework.unity.streambuf</reference-package>
         </repulsions>
     </package>
-    <package name="com.novaframework.unity.streambuf" displayName="NovaFramework.Streambuf" title="Streambuf核心库">
+    <package name="com.novaframework.unity.streambuf"
+             displayName="NovaFramework.Streambuf"
+             title="Streambuf工具库">
         <git-repository url="%REPO_URL%/com.novaframework.unity.streambuf.git"/>
         <repulsions>
             <reference-package>com.novaframework.unity.protobuf</reference-package>
         </repulsions>
     </package>
-    <package name="com.novaframework.unity.fairygui" displayName="NovaFramework.FairyGUI" title="FairyGUI核心库">
+    <package name="com.novaframework.unity.fairygui"
+             displayName="NovaFramework.FairyGUI"
+             title="FairyGUI工具库">
         <git-repository url="%REPO_URL%/com.novaframework.unity.litjson.git"/>
     </package>
 

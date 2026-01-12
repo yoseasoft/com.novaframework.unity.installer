@@ -28,7 +28,7 @@
             <xs:element name="assembly-definition" minOccurs="0" maxOccurs="1">
                 <xs:complexType>
                     <xs:sequence>
-                        <xs:element name="loadable-strategy" type="assembly-loadable-strategy-type" minOccurs="0" maxOccurs="unbounded"/>
+                        <xs:element name="loadable-strategy" type="assembly-loadable-strategy-type" minOccurs="0" maxOccurs="unbounded" nillable="false"/>
                     </xs:sequence>
                     <xs:attribute name="name" type="xs:string" use="required"/>
                     <xs:attribute name="order" type="xs:integer" use="required"/>

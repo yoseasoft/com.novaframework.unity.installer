@@ -10,8 +10,9 @@
 
     <xs:simpleType name="assembly-loadable-strategy-type">
         <xs:restriction base="xs:string">
-            <xs:enumeration value="Compile"/>
+            <xs:enumeration value="Shared"/>
             <xs:enumeration value="Hotfix"/>
+            <xs:enumeration value="Compile"/>
             <xs:enumeration value="Tutorial"/>
             <xs:enumeration value="Test"/>
         </xs:restriction>

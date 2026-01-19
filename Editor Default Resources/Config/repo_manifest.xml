@@ -2,7 +2,18 @@
 <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="repo_manifest.xsd">
     <!-- 环境参数设置 -->
 
-    <set name="REPO_URL" value="https://github.com/yoseasoft"/>
+    <environment-variable name="REPO_URL" value="https://github.com/yoseasoft"/>
+
+    <system-path>
+        <local-path name="ORIGINAL_RESOURCE_PATH" defaultValue="Assets/_Resources" title="原始资源目录" required="true"/>
+        <local-path name="SOURCE_CODE_PATH" defaultValue="Assets/Sources" title="源码目录" required="true"/>
+        <local-path name="SCRIPT_FILE_PATH" defaultValue="Assets/LuaScripts" title="脚本目录"/>
+        <local-path name="AOT_LIBRARY_PATH" defaultValue="Assets/_Resources/Aot" title="预编译库目录" required="true"/>
+        <local-path name="LINK_LIBRARY_PATH" defaultValue="Assets/_Resources/Code" title="链接库目录" required="true"/>
+        <local-path name="CONTEXT_PATH" defaultValue="Assets/_Resources/Context" title="环境文件目录"/>
+        <local-path name="CONFIG_PATH" defaultValue="Assets/_Resources/Config" title="配置文件目录"/>
+        <local-path name="PROTOCOL_PATH" defaultValue="Assets/_Resources/Protocol" title="协议文件目录"/>
+    </system-path>
 
     <!-- 插件包配置清单 -->
 
@@ -132,6 +143,7 @@
         <dependencies>
             <reference-package>com.novaframework.unity.fairygui</reference-package>
         </dependencies>
+        <assets-path>GUI_PATH</assets-path>
     </package>
     <package name="com.gameframework.unity.module.view.ugui"
              displayName="GameFramework.Module.View.UGUI"
@@ -139,6 +151,7 @@
              description="封装UGUI窗口加载及组件访问服务，对外提供UI操作的便捷访问接口">
         <git-repository url="%REPO_URL%/com.gameframework.unity.module.view.ugui.git"/>
         <assembly-definition name="Game.Module.View.Ugui" order="122"/>
+        <assets-path>GUI_PATH</assets-path>
     </package>
 
     <!-- 业务定制库 -->

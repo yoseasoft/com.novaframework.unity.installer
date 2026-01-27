@@ -26,40 +26,43 @@ namespace NovaFramework.Editor.Installer
 {
     /// <summary>
     /// 包管理器，负责处理包的数据逻辑
+    /// 都是内存中的数据
     /// </summary>
     public static class PackageManager
     {
         private static PackageXMLInfo _packageXMLInfo;
+        private static List<PackageInfo> _packageInfoList = new List<PackageInfo>();
         
         public static List<SystemPathInfo> SystemPathInfos => _packageXMLInfo.systemPathInfos;
-        
-        public static List<PackageInfo> AllPackages => _packageXMLInfo.packageInfos;
 
+        public static List<PackageInfo> PackageInfoList => _packageInfoList;
+        
         static PackageManager()
         {
+            // 初始化时加载配置文件
             LoadData();
         }
-
-        //获取最初需要安装的包列表
-        private static void SetDefaultData()
+        
+        public static void LoadData()
         {
             // 尝试加载包数据
             string manifestPath = Constants.REPO_MANIFEST_PATH;
             _packageXMLInfo = PackageXMLParser.ParseXML(manifestPath);
+
+            _packageInfoList = _packageXMLInfo.packageInfos;
             
-            // 同步allPackages的数据
-            foreach (var pkg in _packageXMLInfo.packageInfos)
+            // 进一步处理xml的package数据，
+            foreach (var pkg in _packageInfoList)
             {
                 if (pkg.isRequired)
                 {
                     pkg.isSelected = true;
 
+                    //比如递归依赖的情况，比如A依赖B，B依赖C，那么A依赖C
                     List<string> recursivelyDependencies = GetPackageRecursivelyDependencies(pkg.name);
-                    
-                    //考虑依赖情况
                     foreach (var depPkgName in recursivelyDependencies)
                     {
-                        var existingPkg = _packageXMLInfo.packageInfos.Find(p => p.name == depPkgName);
+                        var existingPkg = _packageInfoList.Find(p => p.name == depPkgName);
                         if (existingPkg != null)
                         {
                             existingPkg.isSelected = true;
@@ -67,25 +70,17 @@ namespace NovaFramework.Editor.Installer
                     }
                 }
             }
-        }
-
-        public static void ResetData()
-        {
-            _packageXMLInfo.packageInfos.Clear();
-        }
-        
-        public static void LoadData()
-        {
-            SetDefaultData();
             
-            // 同步allPackages的数据
-            foreach (var pkg in _packageXMLInfo.packageInfos)
+            //同步持久化数据
+            List<string> persistedPackageNames = DataManager.LoadPersistedSelectedPackages();
+            if (persistedPackageNames != null)
             {
-                FrameworkSetting setting = DataManager.LoadFrameworkSetting();
-                var existing = setting.selectedPackages.Find(p => p.name == pkg.name);
-                if (existing != null)
+                foreach (var pkg in _packageInfoList)
                 {
-                    pkg.isSelected = existing.isSelected;
+                    if (persistedPackageNames.Contains(pkg.name))
+                    {
+                        pkg.isSelected = true;
+                    }
                 }
             }
         }
@@ -99,11 +94,11 @@ namespace NovaFramework.Editor.Installer
         {
             if (string.IsNullOrEmpty(searchFilter))
             {
-                return new List<PackageInfo>(_packageXMLInfo.packageInfos);
+                return new List<PackageInfo>(_packageInfoList);
             }
             else
             {
-                return _packageXMLInfo.packageInfos.FindAll(pkg =>
+                return _packageInfoList.FindAll(pkg =>
                     pkg.displayName.ToLower().Contains(searchFilter.ToLower()) ||
                     pkg.name.ToLower().Contains(searchFilter.ToLower()) ||
                     (!string.IsNullOrEmpty(pkg.description) && pkg.description.ToLower().Contains(searchFilter.ToLower()))
@@ -115,11 +110,28 @@ namespace NovaFramework.Editor.Installer
         /// 获取已选择的包列表
         /// </summary>
         /// <returns>已选择的包列表</returns>
-        public static List<PackageInfo> GetSelectedPackages()
+        public static List<PackageInfo> GetSelectedPackageInfos()
         {
-            return _packageXMLInfo.packageInfos.FindAll(pkg => pkg.isSelected);
+            return _packageInfoList.FindAll(pkg => pkg.isSelected);
         }
-
+        
+        /// <summary>
+        /// 获取已选择的包名称列表
+        /// </summary>
+        /// <returns>已选择的包名称列表</returns>
+        public static List<string> GetSelectedPackageNames()
+        {
+            List<PackageInfo> selectedPackages = GetSelectedPackageInfos();
+            List<string> selectedPackageNames = new List<string>();
+            
+            foreach (var pkg in selectedPackages)
+            {
+                selectedPackageNames.Add(pkg.name);
+            }
+            
+            return selectedPackageNames;
+        }
+        
         /// <summary>
         /// 获取指定名称的包信息
         /// </summary>
@@ -127,7 +139,7 @@ namespace NovaFramework.Editor.Installer
         /// <returns>包信息，如果未找到则返回null</returns>
         public static PackageInfo GetPackageInfoByName(string name)
         {
-            return _packageXMLInfo.packageInfos?.Find(pkg => pkg.name == name);
+            return _packageInfoList?.Find(pkg => pkg.name == name);
         }
 
         //通过递归，找出所有的依赖包
@@ -149,6 +161,5 @@ namespace NovaFramework.Editor.Installer
 
             return recursivelyDependencies;
         }
-        
     }
 }

@@ -51,6 +51,9 @@ namespace NovaFramework.Editor.Installer
         
         void OnEnable()
         {
+            //重新加载数据
+            PackageManager.LoadData();
+            
             _packageView = new PackageConfigurationView();
             _directoryView = new DirectoryConfigurationView();
             _assemblyView = new AssemblyConfigurationView();
@@ -82,7 +85,14 @@ namespace NovaFramework.Editor.Installer
                     _directoryView.DrawView();
                     break;
                 case 2:
-                    _assemblyView.DrawView();
+                    if (_assemblyView != null)
+                    {
+                        _assemblyView.DrawView();
+                    }
+                    else
+                    {
+                        EditorGUILayout.HelpBox("程序集配置视图未初始化", MessageType.Error);
+                    }
                     break;
             }
 

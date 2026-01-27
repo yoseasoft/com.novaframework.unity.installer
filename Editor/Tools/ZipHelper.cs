@@ -42,14 +42,5 @@ namespace NovaFramework.Editor.Installer
             }
         }
         
-        /// <summary>
-        /// 检查ZIP文件是否存在
-        /// </summary>
-        /// <param name="zipPath">ZIP文件路径</param>
-        /// <returns>存在返回true，否则返回false</returns>
-        public static bool ZipFileExists(string zipPath)
-        {
-            return File.Exists(zipPath);
-        }
     }
 }

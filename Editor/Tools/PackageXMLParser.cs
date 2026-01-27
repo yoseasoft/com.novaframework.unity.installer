@@ -32,8 +32,6 @@ namespace NovaFramework.Editor.Installer
     /// </summary>
     public class PackageXMLParser
     {
-        static PackageXMLInfo _packageXMLInfo = new PackageXMLInfo();
-        
         /// <summary>
         /// 解析XML文件并返回包信息列表
         /// </summary>
@@ -41,7 +39,7 @@ namespace NovaFramework.Editor.Installer
         /// <returns>包信息列表</returns>
         public static PackageXMLInfo ParseXML(string xmlPath)
         {
-            _packageXMLInfo.ClearData();
+            PackageXMLInfo _packageXMLInfo = new PackageXMLInfo();
             
             try
             {
@@ -49,10 +47,10 @@ namespace NovaFramework.Editor.Installer
                 string xmlContent = System.IO.File.ReadAllText(xmlPath);
                 
                 // 解析变量定义
-                ParseEnvironmentVariables(xmlContent);
+                _packageXMLInfo.environmentVariables = ParseEnvironmentVariables(xmlContent);
                 
                 // 解析系统路径定义
-                ParseSystemPaths(xmlContent);
+                _packageXMLInfo.systemPathInfos = ParseSystemPaths(xmlContent);
                 
                 // 替换变量
                 foreach (var variable in _packageXMLInfo.environmentVariables)
@@ -328,8 +326,10 @@ namespace NovaFramework.Editor.Installer
         /// 解析XML中的系统路径定义
         /// </summary>
         /// <param name="xmlContent">XML内容</param>
-        private static void ParseSystemPaths(string xmlContent)
+        private static List<SystemPathInfo> ParseSystemPaths(string xmlContent)
         {
+            List<SystemPathInfo> systemPathInfos = new List<SystemPathInfo>();
+            
             try
             {
                 XmlDocument tempDoc = new XmlDocument();
@@ -352,7 +352,7 @@ namespace NovaFramework.Editor.Installer
                         systemPath.title = title;
                         systemPath.isRequired = string.Equals(isRequiredStr, "true", StringComparison.OrdinalIgnoreCase);
                         
-                        _packageXMLInfo.systemPathInfos.Add(systemPath);
+                        systemPathInfos.Add(systemPath);
                         
                         //Debug.Log($"解析系统路径: {name} = {defaultValue}, 标题: {title}, 必需: {systemPath.isRequired}");
                     }
@@ -362,14 +362,18 @@ namespace NovaFramework.Editor.Installer
             {
                 Debug.LogError($"解析系统路径时出错: {e.Message}");
             }
+
+            return systemPathInfos;
         }
         
         /// <summary>
         /// 解析XML中的环境变量定义
         /// </summary>
         /// <param name="xmlContent">XML内容</param>
-        private static void ParseEnvironmentVariables(string xmlContent)
+        private static Dictionary<string, string> ParseEnvironmentVariables(string xmlContent)
         {
+            Dictionary<string, string> environmentVariables = new Dictionary<string, string>();
+            
             try
             {
                 XmlDocument tempDoc = new XmlDocument();
@@ -384,7 +388,7 @@ namespace NovaFramework.Editor.Installer
                     
                     if (!string.IsNullOrEmpty(name))
                     {
-                        _packageXMLInfo.environmentVariables.Add(name, value);
+                        environmentVariables.Add(name, value);
                         
                         Debug.Log($"解析环境变量: {name} = {value}");
                     }
@@ -394,6 +398,8 @@ namespace NovaFramework.Editor.Installer
             {
                 Debug.LogError($"解析环境变量时出错: {e.Message}");
             }
+
+            return environmentVariables;
         }
     }
 }

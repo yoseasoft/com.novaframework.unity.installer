@@ -21,11 +21,11 @@
 /// -------------------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using UnityEngine;
+using UnityEditor;
 
 namespace NovaFramework.Editor.Installer
 {
@@ -33,98 +33,117 @@ namespace NovaFramework.Editor.Installer
     public static class GitManager
     {
         // 最大重试次数（解决文件临时占用问题）
-        private const int MaxRetryCount = 3;
+        private const int MAX_RETRY_COUNT = 3;
         // 重试间隔（毫秒）
-        private const int RetryDelayMs = 500;
+        private const int RETRY_DELAY_MS = 500;
 
-        private const string savePath = "file:./../" + Constants.SAVE_PACKAGE_RELATIVE_PATH;
+        private const string SAVE_ROOT_PARH = "file:./../" + Constants.SAVE_PACKAGE_RELATIVE_PATH;
         
-        public static void InstallPackageFromGit(PackageInfo package, string destinationPath)
+        private static void InstallPackageFromGit(PackageInfo package, string destinationPath)
         {
             if (!Directory.Exists(destinationPath))
             {
                 Directory.CreateDirectory(destinationPath);
             }
             
-            if (GitHelper.CloneRepository(package.gitUrl, destinationPath))
+            bool cloneSuccess = GitHelper.CloneRepository(package.gitUrl, destinationPath);
+            
+            if (cloneSuccess)
             {
-                Debug.Log($"从Git仓库安装成功: {package.gitUrl}");
-                string packageSavePath = Path.Combine(savePath, package.name).Replace("\\", "/");
-                PackageManifestHandler.AddPackage(packageSavePath, package);
+                // 等待文件系统稳定后再更新包清单
+                WaitForFileSystemStable(() =>
+                {
+                    string packageSavePath = Path.Combine(SAVE_ROOT_PARH, package.name).Replace("\\", "/");
+                    PackageManifestHandler.AddPackageToManifest(packageSavePath, package.name);
+                });
             }
             else
             {
-                Debug.LogError($"从Git仓库安装失败: {package.gitUrl}");
+                UnityEngine.Debug.LogError($"[GitManager] 从Git仓库安装失败: {package.gitUrl}");
             }
         }
         
-        public static void UninstallPackage(string folderPath, string folderName)
+        public static void UninstallPackage(string oldPkgName)
         {
+            string folderPath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, oldPkgName);
             ForceDeleteDirectory(folderPath);
-            PackageManifestHandler.RemovePackage(folderName);
+            PackageManifestHandler.RemovePackageFromManifest(oldPkgName);
         }
 
         /// <summary>
-        /// 
+        /// 安装指定名称的包
         /// </summary>
-        /// <param name="newPackages">新的所选包</param>
-        public static void SavePackage(List<PackageInfo> newPackages)
+        /// <param name="packageName">包名称</param>
+        /// <param name="onComplete">安装完成回调</param>
+        public static void InstallPackage(PackageInfo packageInfo, System.Action onComplete = null)
         {
-            if (!Directory.Exists(Constants.FRAMEWORK_REPO_PATH))
+            try
             {
-                Directory.CreateDirectory(Constants.FRAMEWORK_REPO_PATH);
+                if (packageInfo == null)
+                {
+                    UnityEngine.Debug.LogError("[GitManager] InstallPackage: packageInfo 为 null");
+                    onComplete?.Invoke(); // 即使为空也要调用回调，否则流程会中断
+                    return;
+                }
+                
+                string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageInfo.name);
+                
+                InstallPackageFromGit(packageInfo, packagePath);
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[GitManager] InstallPackage 异常: {ex.Message}\n{ex.StackTrace}");
             }
             
-            // 获取 FRAMEWORK_REPO_PATH 下的所有子文件夹
-            string[] existingFolders = Directory.GetDirectories(Constants.FRAMEWORK_REPO_PATH);
-            
-            // 遍历现有文件夹，检查是否在 newPackages 中存在对应的包
-            foreach (string folderPath in existingFolders)
+            // 确保回调始终被调用
+            onComplete?.Invoke();
+        }
+        
+
+
+        /// <summary>
+        /// oldPackages中有，newPackages中没有的包，则删除
+        /// oldPackages中没有，newPackages中有的包，则安装
+        /// </summary>
+        /// <param name="oldPackages"></param>
+        /// <param name="newPackages"></param>
+        public static void HandleSelectPackages(List<string> oldPackages, List<string> newPackages)
+        {
+            // 1. 找出需要删除的包（在旧列表中存在，但在新列表中不存在）
+            foreach (var oldPkgName in oldPackages)
             {
-                string folderName = Path.GetFileName(folderPath);
-                
-                bool packageExists = false;
-                foreach (var package in newPackages)
+                if (!newPackages.Contains(oldPkgName))
                 {
-                    if (package.name == folderName)
+                    // 从旧列表中存在但不在新列表中的包需要被卸载
+                    UninstallPackage(oldPkgName);
+                }
+            }
+            
+            // 2. 找出需要安装的包（在新列表中存在，但在旧列表中不存在）
+            foreach (var newPkgName in newPackages)
+            {
+                if (!oldPackages.Contains(newPkgName))
+                {
+                    // 在新列表中存在但不在旧列表中的包需要被安装
+                    PackageInfo packageInfo = PackageManager.GetPackageInfoByName(newPkgName);
+                    if (packageInfo != null && !string.IsNullOrEmpty(packageInfo.gitUrl))
                     {
-                        packageExists = true;
-                        break;
+                        string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, newPkgName);
+                        InstallPackageFromGit(packageInfo, packagePath);
                     }
-                }
-                
-                // 如果文件夹在 newPackages 中不存在，则删除它
-                if (!packageExists)
-                {
-                    UninstallPackage(folderPath, folderName);
-                }
-            }
-            
-            // 遍历 newPackages，检查是否需要克隆新的包
-            foreach (var package in newPackages)
-            {
-                string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, package.name);
-                
-                // 如果包不存在，则进行克隆
-                if (!Directory.Exists(packagePath) && !string.IsNullOrEmpty(package.gitUrl))
-                {
-                    InstallPackageFromGit(package, packagePath);
                 }
             }
         }
-
-
         
         /// <summary>
         /// 强制删除目录（适配Git/Unity场景，处理隐藏/只读/被占用文件）
         /// </summary>
         /// <param name="targetDir">要删除的目录路径</param>
-        public static void ForceDeleteDirectory(string targetDir)
+        private static void ForceDeleteDirectory(string targetDir)
         {
             // 校验目录是否存在
             if (!Directory.Exists(targetDir))
             {
-                Debug.Log($"目录 {targetDir} 不存在，无需删除");
                 return;
             }
 
@@ -161,7 +180,7 @@ namespace NovaFramework.Editor.Installer
                 // 4. 删除空目录（带重试）
                 DeleteDirectoryWithRetry(targetDir);
 
-                Debug.Log($"目录 {targetDir} 删除成功");
+
             }
             catch (Exception ex)
             {
@@ -176,7 +195,7 @@ namespace NovaFramework.Editor.Installer
         private static void DeleteFileWithRetry(FileInfo fileInfo)
         {
             int retryCount = 0;
-            while (retryCount < MaxRetryCount)
+            while (retryCount < MAX_RETRY_COUNT)
             {
                 try
                 {
@@ -190,8 +209,8 @@ namespace NovaFramework.Editor.Installer
                 catch (UnauthorizedAccessException)
                 {
                     retryCount++;
-                    if (retryCount >= MaxRetryCount) throw;
-                    Thread.Sleep(RetryDelayMs); // 等待后重试
+                    if (retryCount >= MAX_RETRY_COUNT) throw;
+                    Thread.Sleep(RETRY_DELAY_MS); // 等待后重试
                 }
             }
         }
@@ -202,7 +221,7 @@ namespace NovaFramework.Editor.Installer
         private static void DeleteDirectoryWithRetry(string dirPath)
         {
             int retryCount = 0;
-            while (retryCount < MaxRetryCount)
+            while (retryCount < MAX_RETRY_COUNT)
             {
                 try
                 {
@@ -216,73 +235,128 @@ namespace NovaFramework.Editor.Installer
                 catch (UnauthorizedAccessException)
                 {
                     retryCount++;
-                    if (retryCount >= MaxRetryCount) throw;
-                    Thread.Sleep(RetryDelayMs);
+                    if (retryCount >= MAX_RETRY_COUNT) throw;
+                    Thread.Sleep(RETRY_DELAY_MS);
                 }
             }
         }
         
-        public static void UpdateSelectPackage(List<PackageInfo> selectPackages)
-        { 
+        public static void UpdatePackages(List<PackageInfo> selectPackages)
+        {
             foreach (var package in selectPackages)
             {
-                if (!string.IsNullOrEmpty(package.gitUrl))
-                {
-                    // 获取包的存储路径
-                    string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, package.name);
-                    
-                    if (Directory.Exists(packagePath))
-                    {
-                        // 如果包已存在，使用pull更新
-                        if (GitHelper.PullRepository(packagePath))
-                        {
-                            Debug.Log($"包 {package.name} 更新成功");
-                        }
-                        else
-                        {
-                            Debug.LogError($"包 {package.name} 更新失败");
-                        }
-                    }
-                    else
-                    {
-                        // 如果包不存在，则执行初始安装
-                        InstallPackageFromGit(package, packagePath);
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning($"包 {package.name} 没有设置Git URL，无法更新");
-                }
+                UpdateSinglePackage(package.name);
             }
         }
-        
-        /// <summary>
-        /// 安装指定名称的包
-        /// </summary>
-        /// <param name="packageName">包名称</param>
-        /// <param name="onComplete">安装完成回调</param>
-        public static void InstallPackage(string packageName, System.Action onComplete = null)
+
+        public static void UpdateSinglePackage(string packageName)
         {
-            var package = PackageManager.GetPackageInfoByName(packageName);
-            if (package != null)
+            // 获取包的存储路径
+            string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageName);
+                    
+            if (Directory.Exists(packagePath))
             {
-                string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, package.name);
-                
-                if (!string.IsNullOrEmpty(package.gitUrl))
+                // 如果包已存在，使用pull更新
+                if (!GitHelper.PullRepository(packagePath))
                 {
-                    InstallPackageFromGit(package, packagePath);
-                }
-                else
-                {
-                    Debug.LogWarning($"包 {package.name} 没有设置Git URL，无法安装");
+                    Debug.LogError($"包 {packageName} 更新失败");
                 }
             }
             else
             {
-                Debug.LogWarning($"未找到名为 {packageName} 的包");
+                Debug.LogError($"包 {packageName} 不存在，请先安装");
+            }
+        }
+        
+        /// <summary>
+        /// 等待文件系统稳定
+        /// </summary>
+        /// <param name="onComplete">稳定后执行的回调</param>
+        private static void WaitForFileSystemStable(System.Action onComplete)
+        {
+            // 简单的轮询等待，确保文件系统操作完成
+            int checkCount = 0;
+            const int maxChecks = 50; // 最多检查50次
+            
+            System.Action checkStability = null;
+            EditorApplication.CallbackFunction callbackFunc = null;
+            
+            checkStability = () =>
+            {
+                checkCount++;
+                
+                // 检查是否有文件正在被使用或写入
+                bool isStable = true;
+                
+                try
+                {
+                    // 检查目标目录是否稳定
+                    if (Directory.Exists(SAVE_ROOT_PARH))
+                    {
+                        var files = Directory.GetFiles(SAVE_ROOT_PARH, "*", SearchOption.AllDirectories);
+                        foreach (var file in files)
+                        {
+                            if (IsFileLocked(file))
+                            {
+                                isStable = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // 如果无法访问文件，认为不稳定
+                    isStable = false;
+                }
+                
+                if (isStable || checkCount >= maxChecks)
+                {
+                    onComplete?.Invoke();
+                }
+                else
+                {
+                    // 继续等待 - 创建一个新的CallbackFunction包装器
+                    callbackFunc = () => {
+                        EditorApplication.delayCall -= callbackFunc;
+                        checkStability();
+                    };
+                    EditorApplication.delayCall += callbackFunc;
+                }
+            };
+            
+            checkStability();
+        }
+        
+        /// <summary>
+        /// 检查文件是否被锁定
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <returns>如果文件被锁定返回true，否则返回false</returns>
+        private static bool IsFileLocked(string filePath)
+        {
+            try
+            {
+                if (!File.Exists(filePath))
+                    return false;
+                
+                using (FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    stream.Close();
+                }
+            }
+            catch (IOException)
+            {
+                // 文件被占用
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // 没有访问权限，可能被占用
+                return true;
             }
             
-            onComplete?.Invoke();
+            return false;
         }
     }
 }

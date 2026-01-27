@@ -51,7 +51,7 @@ namespace NovaFramework.Editor.Installer
             DrawButtomPanel();
         }
 
-        public void DrawTopPanel()
+        private void DrawTopPanel()
         {
             EditorGUILayout.Space(20); // 增加间距
             
@@ -71,13 +71,14 @@ namespace NovaFramework.Editor.Installer
             
             GUIStyle clearButtonStyle = RichTextUtils.GetButtonTextOnlyStyle(Color.white);
             if (GUILayout.Button("清空", clearButtonStyle, GUILayout.Width(60)))
-            {
-                _packageSearchFilter = "";
+            { 
+                _packageSearchFilter = ""; 
+                GUI.FocusControl(null); // 移除焦点，强制重绘
             }
             EditorGUILayout.EndHorizontal();
         }
         
-        public void DrawLeftPanel()
+        private void DrawLeftPanel()
         {
             // 左侧：所有包列表（带搜索过滤）
             EditorGUILayout.BeginVertical(GUILayout.Width(Screen.width * 0.55f)); // 增加左侧宽度到55%
@@ -196,7 +197,7 @@ namespace NovaFramework.Editor.Installer
             EditorGUILayout.EndVertical();
         }
 
-        public void DrawRightPanel()
+        private void DrawRightPanel()
         {
             GUILayout.Space(40); // 左侧整体右移20像素，增加左侧视觉空间
 
@@ -209,37 +210,64 @@ namespace NovaFramework.Editor.Installer
             EditorGUILayout.EndVertical();
         }
 
-        public void DrawButtomPanel()
+        private void DrawButtomPanel()
         {
             
             EditorGUILayout.Space(30);
             
             EditorGUILayout.BeginHorizontal();
             
-            GUIStyle saveButtonStyle = RichTextUtils.GetButtonStyle(Color.white, new Color(0.2f, 0.6f, 0.2f, 1f)); // 绿色背景的保存按钮
+            GUIStyle saveButtonStyle = RichTextUtils.GetButtonTextOnlyStyle(Color.green); 
             if (GUILayout.Button("保存选择", saveButtonStyle, GUILayout.Height(35)))
             {
                 Debug.Log("保存选择");
-                GitManager.SavePackage(PackageManager.GetSelectedPackages());
-                DataManager.SaveSelectPackage(PackageManager.GetSelectedPackages());
+                GitManager.HandleSelectPackages(DataManager.LoadPersistedSelectedPackages(), PackageManager.GetSelectedPackageNames());
+                DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
             }
             
-            GUIStyle updateButtonStyle = RichTextUtils.GetButtonStyle(Color.black, new Color(1f, 0.92f, 0.24f, 1f)); // 黄色背景的更新按钮
+            GUIStyle updateButtonStyle = RichTextUtils.GetButtonTextOnlyStyle(Color.yellow);
             if (GUILayout.Button("一键更新所选包(Git)", updateButtonStyle, GUILayout.Height(35)))
             {
                 Debug.Log("一键更新所选包(Git)");
-                if (EditorUtility.DisplayDialog("确认更新", 
-                    "确定要更新所有选中的包吗？此操作将会从Git仓库拉取最新版本。", 
-                    "确定", "取消"))
+
+                if (IsSamePackages(DataManager.LoadPersistedSelectedPackages(), PackageManager.GetSelectedPackageNames()))
                 {
-                    GitManager.UpdateSelectPackage(PackageManager.GetSelectedPackages());
-                    DataManager.SaveSelectPackage(PackageManager.GetSelectedPackages());
+                    if (EditorUtility.DisplayDialog("确认更新", 
+                            "确定要更新所有选中的包吗？此操作将会从Git仓库拉取最新版本。", 
+                            "确定", "取消"))
+                    {
+                        GitManager.UpdatePackages(PackageManager.GetSelectedPackageInfos());
+                        DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
+                    }
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog("更新失败", "所选包列表有修改，请先保存选择", "确定");
                 }
             }
             
             EditorGUILayout.EndHorizontal();
         }
 
+        private bool IsSamePackages(List<string> oldPackages, List<string> newPackages)
+        {
+            if (oldPackages.Count == newPackages.Count)
+            {
+                for (int i = 0; i < oldPackages.Count; i++)
+                {
+                    if (!newPackages.Contains(oldPackages[i]))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else
+            {
+                return false;
+            }
+
+            return true;
+        }
         
         /// <summary>
         /// 切换包的选择状态前的检查
@@ -247,12 +275,12 @@ namespace NovaFramework.Editor.Installer
         /// <param name="package">要切换的包</param>
         /// <param name="isSelected">新的选择状态</param>
         /// <returns>如果操作成功则返回true，否则返回false</returns>
-        public bool TogglePackageCheck(PackageInfo package, bool isSelected)
+        private bool TogglePackageCheck(PackageInfo package, bool isSelected)
         {
             if (package == null || package.isRequired) return false;
 
             List<string> recursivelyDependencies = PackageManager.GetPackageRecursivelyDependencies(package.name);
-            List<PackageInfo> selectedPackages = PackageManager.GetSelectedPackages();
+            List<PackageInfo> selectedPackages = PackageManager.GetSelectedPackageInfos();
             
             if (isSelected)
             {
@@ -295,7 +323,7 @@ namespace NovaFramework.Editor.Installer
                 // 选中包时，自动选中其引用
                 foreach (string depName in recursivelyDependencies)
                 {
-                    var depPackage = PackageManager.AllPackages.Find(p => p.name == depName);
+                    var depPackage = PackageManager.PackageInfoList.Find(p => p.name == depName);
                     if (depPackage != null && !depPackage.isSelected)
                     {
                         depPackage.isSelected = true;
@@ -307,7 +335,7 @@ namespace NovaFramework.Editor.Installer
             else
             {
                 // 取消选中包时，检查是否有其他包依赖它
-                foreach (var otherPackage in PackageManager.AllPackages)
+                foreach (var otherPackage in PackageManager.PackageInfoList)
                 {
                     if (otherPackage.isSelected && otherPackage.dependencies.Contains(package.name))
                     {
@@ -329,7 +357,7 @@ namespace NovaFramework.Editor.Installer
         private void DrawSelectedPackagesPanel()
         {
             //获取已选中的包
-            var selectedPackages = PackageManager.GetSelectedPackages();
+            var selectedPackages = PackageManager.GetSelectedPackageInfos();
             
             if (selectedPackages.Count == 0)
             {
@@ -375,7 +403,7 @@ namespace NovaFramework.Editor.Installer
         /// 切换包详情的可见性
         /// </summary>
         /// <param name="packageName">包名</param>
-        public void TogglePackageDetailVisibility(string packageName)
+        private void TogglePackageDetailVisibility(string packageName)
         {
             if (_packageDetailsVisibility.ContainsKey(packageName))
             {

@@ -68,37 +68,74 @@ namespace NovaFramework.Editor.Installer
             {
                 Name = "必需包",
                 IsValid = true,
+                // 预估容量以优化性能
                 Details = new List<string>()
             };
-            
+
             try
             {
                 // 获取当前已选择的包
-                var frameworkSetting = DataManager.LoadFrameworkSetting();
-                
+                var selectedPackageNames = DataManager.LoadPersistedSelectedPackages();
+
                 // 检查是否有已选中的包
-                if (frameworkSetting.selectedPackages.Count > 0)
+                if (selectedPackageNames.Count > 0)
                 {
-                    item.Details.Add($"找到 {frameworkSetting.selectedPackages.Count} 个已选中的包");
-                    
-                    // 检查包文件是否存在
-                    foreach (var package in frameworkSetting.selectedPackages)
+                    item.Details.Add($"找到 {selectedPackageNames.Count} 个已选中的包");
+
+                    // 读取 manifest.json 的 dependencies 区域，按配置判断是否安装
+                    string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+                    string manifestPath = Path.Combine(projectRoot, "Packages", "manifest.json");
+
+                    if (!File.Exists(manifestPath))
                     {
-                        if (package.isSelected)
+                        item.Details.Add($"✗ 未找到 manifest.json 文件: {manifestPath}");
+                        item.IsValid = false;
+                    }
+                    else
+                    {
+                        string manifestJson = File.ReadAllText(manifestPath);
+                        int dependenciesIndex = manifestJson.IndexOf("\"dependencies\"", StringComparison.Ordinal);
+                        string dependenciesBlock = string.Empty;
+
+                        if (dependenciesIndex >= 0)
                         {
-                            string packagePath;
-                            
-                                // 普通包在 Packages 目录下
-                            packagePath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Packages", package.name);
-                            
-                            
-                            if (Directory.Exists(packagePath))
+                            int braceStart = manifestJson.IndexOf('{', dependenciesIndex);
+                            if (braceStart >= 0)
                             {
-                                item.Details.Add($"✓ {package.name} 已安装");
+                                int braceCount = 0;
+                                for (int i = braceStart; i < manifestJson.Length; i++)
+                                {
+                                    char c = manifestJson[i];
+                                    if (c == '{')
+                                    {
+                                        braceCount++;
+                                    }
+                                    else if (c == '}')
+                                    {
+                                        braceCount--;
+                                        if (braceCount == 0)
+                                        {
+                                            int length = i - braceStart + 1;
+                                            dependenciesBlock = manifestJson.Substring(braceStart, length);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        foreach (var packageName in selectedPackageNames)
+                        {
+                            bool existsInManifest = !string.IsNullOrEmpty(dependenciesBlock) &&
+                                                    dependenciesBlock.Contains($"\"{packageName}\"", StringComparison.Ordinal);
+
+                            if (existsInManifest)
+                            {
+                                item.Details.Add($"✓ {packageName} 已在 manifest.json 的 dependencies 中配置");
                             }
                             else
                             {
-                                item.Details.Add($"✗ {package.name} 未找到在: {packagePath}");
+                                item.Details.Add($"✗ {packageName} 未在 manifest.json 的 dependencies 中找到配置");
                                 item.IsValid = false;
                             }
                         }
@@ -116,7 +153,7 @@ namespace NovaFramework.Editor.Installer
                 item.Details.Add($"检查包时出错: {ex.Message}");
                 item.IsValid = false;
             }
-            
+
             return item;
         }
         
@@ -176,32 +213,17 @@ namespace NovaFramework.Editor.Installer
             
             try
             {
-                string[] configFiles = {
-                    Constants.ASSEMBLY_CONFIG_PATH,
-                    Constants.SYSTEM_VARIABLES_PATH
-                };
+                string configFile = Constants.SYSTEM_ENVIRONMENTS_PATH;
+                string fullPath = Constants.SYSTEM_ENVIRONMENTS_ABSOLUTE_PATH;
                 
-                foreach (string configFile in configFiles)
+                if (File.Exists(fullPath))
                 {
-                    string fullPath;
-                    if (configFile.StartsWith("Assets/"))
-                    {
-                        fullPath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, configFile);
-                    }
-                    else
-                    {
-                        fullPath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, configFile);
-                    }
-                    
-                    if (File.Exists(fullPath))
-                    {
-                        item.Details.Add($"✓ {configFile} 配置文件存在");
-                    }
-                    else
-                    {
-                        item.Details.Add($"✗ {configFile} 配置文件不存在");
-                        item.IsValid = false;
-                    }
+                    item.Details.Add($"✓ {configFile} 配置文件存在");
+                }
+                else
+                {
+                    item.Details.Add($"✗ {configFile} 配置文件不存在");
+                    item.IsValid = false;
                 }
                 
                 // 验证主场景文件
@@ -238,7 +260,7 @@ namespace NovaFramework.Editor.Installer
             
             try
             {
-                string assemblyConfigPath = Constants.ASSEMBLY_CONFIG_PATH;
+                string assemblyConfigPath = Constants.SYSTEM_ENVIRONMENTS_ABSOLUTE_PATH;
                 
                 if (File.Exists(assemblyConfigPath))
                 {
@@ -314,35 +336,7 @@ namespace NovaFramework.Editor.Installer
             window.Show();
         }
         
-        // 格式化验证项显示
-        private static string FormatValidationItem(ValidationItem item, string category)
-        {
-            string status = item.IsValid ? "✓ 通过" : "✗ 未通过";
-            
-            string message = $"• {item.Name} ({category}): {status}\n";
-            
-            // 如果验证失败，强调显示
-            if (!item.IsValid)
-            {
-                message += "  >> 该类别验证未通过，以下是详细信息：\n";
-            }
-            
-            foreach (string detail in item.Details)
-            {
-                // 如果详情中包含错误标记，则额外标识
-                if (detail.Contains("✗"))
-                {
-                    message += $">>  {detail}\n";
-                }
-                else
-                {
-                    message += $"  {detail}\n";
-                }
-            }
-            
-            message += "\n";
-            return message;
-        }
+
     }
 
     public class ValidationResult

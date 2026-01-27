@@ -35,56 +35,11 @@ namespace NovaFramework.Editor.Installer
     public static class PackageManifestHandler
     {
         /// <summary>
-        /// 安装包配置到项目
-        /// </summary>
-        /// <param name="package">要安装的包</param>
-        public static void AddPackage(string savePath, PackageInfo package)
-        {
-            if (string.IsNullOrEmpty(package.gitUrl))
-            {
-                Debug.LogWarning($"包 {package.displayName} 没有有效的Git URL");
-                return;
-            }
-
-            // 通过修改manifest.json添加包依赖
-            AddPackageToManifest(savePath, package.name);
-        }
-
-        /// <summary>
-        /// 从项目中卸载包
-        /// </summary>
-        /// <param name="package">要卸载的包</param>
-        public static void RemovePackage(string packageName)
-        {
-            // 从manifest.json中移除包依赖
-            RemovePackageFromManifest(packageName);
-        }
-
-        /// <summary>
-        /// 更新选中的包
-        /// </summary>
-        /// <param name="selectedPackages">选中的包列表</param>
-        public static void UpdateSelectedPackages(List<PackageInfo> selectedPackages)
-        {
-            foreach (var package in selectedPackages)
-            {
-                if (!string.IsNullOrEmpty(package.gitUrl))
-                {
-                    // 通过修改manifest.json更新包依赖，实际上是重新添加包以获取最新版本
-                    UpdatePackageInManifest(package.gitUrl, package.name);
-                }
-            }
-            
-            // 刷新Unity的包管理器
-            UnityEditor.PackageManager.Client.Resolve();
-        }
-
-        /// <summary>
         /// 添加包到manifest.json
         /// </summary>
         /// <param name="gitUrl">Git仓库URL</param>
         /// <param name="packageName">包名称</param>
-        private static void AddPackageToManifest(string savePath, string packageName)
+        public static void AddPackageToManifest(string savePath, string packageName)
         {
             try
             {
@@ -168,8 +123,8 @@ namespace NovaFramework.Editor.Installer
 
                 Debug.Log($"成功添加包 {packageName} 到manifest.json: {packageRef}");
 
-                // 刷新Unity的包管理器
-                UnityEditor.PackageManager.Client.Resolve();
+                // 注释掉此处的Client.Resolve()调用，统一在所有包都添加完毕后调用
+                // UnityEditor.PackageManager.Client.Resolve();
             }
             catch (Exception e)
             {
@@ -181,7 +136,7 @@ namespace NovaFramework.Editor.Installer
         /// 从manifest.json中移除包
         /// </summary>
         /// <param name="packageName">包名称</param>
-        private static void RemovePackageFromManifest(string packageName)
+        public static void RemovePackageFromManifest(string packageName)
         {
             try
             {
@@ -282,8 +237,8 @@ namespace NovaFramework.Editor.Installer
 
                 Debug.Log($"成功从manifest.json移除包 {packageName}");
 
-                // 刷新Unity的包管理器
-                UnityEditor.PackageManager.Client.Resolve();
+                // 注释掉此处的Client.Resolve()调用，统一在所有包都处理完毕后调用
+                // UnityEditor.PackageManager.Client.Resolve();
             }
             catch (Exception e)
             {
@@ -291,96 +246,8 @@ namespace NovaFramework.Editor.Installer
             }
         }
 
-        /// <summary>
-        /// 更新manifest.json中的包
-        /// </summary>
-        /// <param name="gitUrl">Git仓库URL</param>
-        /// <param name="packageName">包名称</param>
-        private static void UpdatePackageInManifest(string gitUrl, string packageName)
-        {
-            try
-            {
-                // 获取manifest.json文件路径
-                string manifestPath = Path.Combine(Directory.GetParent(Application.dataPath).ToString(), "Packages", "manifest.json");
-
-                if (!File.Exists(manifestPath))
-                {
-                    Debug.LogError($"未找到manifest.json文件: {manifestPath}");
-                    return;
-                }
-
-                // 读取现有的manifest.json内容
-                string jsonContent = File.ReadAllText(manifestPath);
-
-                // 查找 "dependencies" 的位置
-                string dependenciesMarker = "\"dependencies\"";
-                int dependenciesIndex = jsonContent.IndexOf(dependenciesMarker);
-
-                if (dependenciesIndex == -1)
-                {
-                    Debug.LogError("未在manifest.json中找到dependencies部分");
-                    return;
-                }
-
-                // 从dependencies标记后查找冒号和左大括号
-                int colonIndex = jsonContent.IndexOf(":", dependenciesIndex);
-                if (colonIndex == -1)
-                {
-                    Debug.LogError("未在manifest.json中找到dependencies后的冒号");
-                    return;
-                }
-
-                int openBraceIndex = jsonContent.IndexOf('{', colonIndex);
-                if (openBraceIndex == -1)
-                {
-                    Debug.LogError("未在manifest.json中找到dependencies后的左大括号");
-                    return;
-                }
-
-                // 找到dependencies对象的开始位置（左大括号之后）
-                int dependenciesObjStart = openBraceIndex + 1;
-
-                // 提取dependencies对象部分
-                int dependenciesObjEnd = FindMatchingBrace(jsonContent, openBraceIndex);
-                if (dependenciesObjEnd == -1)
-                {
-                    Debug.LogError("manifest.json中dependencies部分格式错误");
-                    return;
-                }
-
-                string dependenciesStr = jsonContent.Substring(dependenciesObjStart, dependenciesObjEnd - dependenciesObjStart - 1).Trim(); // -1 to exclude the closing brace
-                string packageRef = $"git+{gitUrl}"; // 确保使用git协议
-
-                // 检查包是否已存在，如果存在则更新它
-                if (dependenciesStr.Contains($"\"{packageName}\":"))
-                {
-                    // 使用正则表达式替换包引用，保留原始格式
-                    string pattern = $"\"{Regex.Escape(packageName)}\"\\s*:\\s*\"[^\"]*\"";
-                    string replacement = $"\"{packageName}\": \"{packageRef}\"";
-                    string updatedDependenciesStr = Regex.Replace(dependenciesStr, pattern, replacement);
-
-                    // 替换原内容
-                    string newJsonContent = jsonContent.Substring(0, dependenciesObjStart) +
-                                           updatedDependenciesStr +
-                                           jsonContent.Substring(dependenciesObjEnd - 1); // -1 to include the closing brace
-
-                    File.WriteAllText(manifestPath, newJsonContent);
-
-                    Debug.Log($"成功更新包 {packageName} 到manifest.json: {gitUrl}");
-                }
-                else
-                {
-                    Debug.LogWarning($"包 {packageName} 不存在于manifest.json中，无法更新");
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"更新包到manifest.json时出错: {e.Message}");
-            }
-        }
-
         // 辅助方法：找到匹配的大括号
-        public static int FindMatchingBrace(string json, int startIndex)
+        private static int FindMatchingBrace(string json, int startIndex)
         {
             int braceCount = 0;
             bool inString = false;
@@ -417,5 +284,6 @@ namespace NovaFramework.Editor.Installer
 
             return -1; // 未找到匹配的大括号
         }
+        
     }
 }

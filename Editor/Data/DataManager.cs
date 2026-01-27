@@ -28,97 +28,65 @@ using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
-    public static class DataManager
+   public static class DataManager
     {
-        // 数据存储路径
-        public static readonly string FrameworkSettingPath = Constants.FRAMEWORK_SETTING_PATH;
-        public static readonly string SystemVariablesPath = Constants.SYSTEM_VARIABLES_PATH;
-        public static readonly string AssemblyConfigPath = Constants.ASSEMBLY_CONFIG_PATH;
-        
-        // 保存框架设置
-        public static void SaveFrameworkSetting(FrameworkSetting setting)
+        // 加载持久化数据中的包
+        public static List<string> LoadPersistedSelectedPackages()
         {
-            if (setting == null) return;
-            
-            string directory = Path.GetDirectoryName(FrameworkSettingPath);
-            if (!Directory.Exists(directory))
+            List<string> persistedPackageNames = UserSettings.GetObject<List<string>>(Constants.PACKAGE_KEY_NAME);
+            if (persistedPackageNames == null)
             {
-                Directory.CreateDirectory(directory);
+                persistedPackageNames = new List<string>();
+                SavePersistedSelectedPackages(persistedPackageNames);
             }
-            
-            // 检查资源是否存在，如果存在则更新，否则创建新的
-            FrameworkSetting existingSetting = AssetDatabase.LoadAssetAtPath<FrameworkSetting>(FrameworkSettingPath);
-            if (existingSetting != null)
-            {
-                EditorUtility.CopySerialized(setting, existingSetting);
-                AssetDatabase.SaveAssets();
-            }
-            else
-            {
-                AssetDatabase.CreateAsset(setting, FrameworkSettingPath);
-            }
-            
-            AssetDatabase.Refresh();
+            return persistedPackageNames;
         }
         
-        // 加载框架设置
-        public static FrameworkSetting LoadFrameworkSetting()
+        // 持久化保存已选择的包
+        public static void SavePersistedSelectedPackages(List<string> selectPackageNames)
         {
-            FrameworkSetting setting = AssetDatabase.LoadAssetAtPath<FrameworkSetting>(FrameworkSettingPath);
-            if (setting == null)
-            {
-                setting = ScriptableObject.CreateInstance<FrameworkSetting>();
-                // 初始化默认值
-                setting.selectedPackages = new List<PackageInfo>();
-            }
-            return setting;
+            UserSettings.SetObject(Constants.PACKAGE_KEY_NAME, selectPackageNames);
         }
 
-        public static void SaveSelectPackage(List<PackageInfo> selectPackages)
+        public static void ResetPersistedSelectedPackages()
         {
-            FrameworkSetting setting = LoadFrameworkSetting();
-            setting.selectedPackages = selectPackages;
+            UserSettings.SetObject(Constants.PACKAGE_KEY_NAME, new List<string>());
         }
         
+  
         // 保存系统变量配置
         public static void SaveSystemVariables(Dictionary<string, string> variables)
         {
-            var jsonEntries = new List<SystemVariableEntry>();
+            // 从现有system_environments.json加载配置以保留其他配置
+            var envConfig = LoadSystemEnvironmentsConfig();
+            
+            // 只更新变量部分，保留模块和其他配置
+            // 预估容量以优化性能
+            envConfig.variables.Clear();
+            envConfig.variables.Capacity = Math.Max(envConfig.variables.Capacity, variables.Count);
             foreach (var kvp in variables)
             {
-                jsonEntries.Add(new SystemVariableEntry { _key = kvp.Key, _path = kvp.Value });
+                envConfig.variables.Add(new EnvironmentVariable { key = kvp.Key, value = kvp.Value });
             }
             
-            string json = JsonUtility.ToJson(new SystemVariablesContainer { _entries = jsonEntries }, true);
-            
-            string directory = Path.GetDirectoryName(SystemVariablesPath);
-            if (!Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-            
-            File.WriteAllText(SystemVariablesPath, json);
+            // 保存回system_environments.json
+            string configPath = Constants.SYSTEM_ENVIRONMENTS_ABSOLUTE_PATH;
+            string outputJson = JsonUtility.ToJson(envConfig, true);
+            File.WriteAllText(configPath, outputJson);
             AssetDatabase.Refresh();
         }
         
         // 加载系统变量配置
         public static Dictionary<string, string> LoadSystemVariables()
         {
-            if (!File.Exists(SystemVariablesPath))
-            {
-                // 返回默认配置
-                return GetDefaultSystemVariables();
-            }
-            
-            string json = File.ReadAllText(SystemVariablesPath);
-            var container = JsonUtility.FromJson<SystemVariablesContainer>(json);
+            var envConfig = LoadSystemEnvironmentsConfig();
             
             var variables = new Dictionary<string, string>();
-            if (container._entries != null)
+            if (envConfig.variables != null)
             {
-                foreach (var entry in container._entries)
+                foreach (var variable in envConfig.variables)
                 {
-                    variables[entry._key] = entry._path;
+                    variables[variable.key] = variable.value;
                 }
             }
             
@@ -134,88 +102,50 @@ namespace NovaFramework.Editor.Installer
             PackageManager.LoadData();
             var systemPathInfos = PackageManager.SystemPathInfos;
             
-            // 使用系统路径信息中的默认值
+            // 使用系统路径信息中的默认值，但只有required=true的才使用默认值，其他使用空字符串
             foreach (var pathInfo in systemPathInfos)
             {
-                variables[pathInfo.name] = pathInfo.defaultValue;
+                // 如果是必需的，使用默认值，否则使用空字符串
+                string value = pathInfo.isRequired ? pathInfo.defaultValue : "";
+                variables[pathInfo.name] = value;
             }
             
             return variables;
         }
         
-        // 保存程序集配置
-        public static void SaveAssemblyConfig(List<AssemblyDefinitionConfig> configs)
+        
+        
+        // 加载系统环境配置
+        public static SystemEnvironmentConfig LoadSystemEnvironmentsConfig()
         {
-            var configData = new AssemblyConfigDataWrapper { _assemblyConfigs = configs };
-            string json = JsonUtility.ToJson(configData, true);
+            string configPath = Constants.SYSTEM_ENVIRONMENTS_ABSOLUTE_PATH;
             
-            string directory = Path.GetDirectoryName(AssemblyConfigPath);
-            if (!Directory.Exists(directory))
+            if (!File.Exists(configPath))
             {
-                Directory.CreateDirectory(directory);
+                return new SystemEnvironmentConfig();
             }
             
-            File.WriteAllText(AssemblyConfigPath, json);
-            AssetDatabase.Refresh();
-        }
-        
-        // 加载程序集配置
-        public static List<AssemblyDefinitionConfig> LoadAssemblyConfig()
-        {
-            // 检测是否有AssemblyConfig.json文件，如果有就按这个json加载，没有的话返回空列表让系统生成新的
-            string primaryPath = AssemblyConfigPath; // Assets/Resources/AssemblyConfig.json
-            string configPath = null;
+            string json = File.ReadAllText(configPath);
             
-            // 优先检查主要路径
-            if (File.Exists(primaryPath))
+            // 检查文件内容是否为空
+            if (string.IsNullOrWhiteSpace(json))
             {
-                configPath = primaryPath;
+                Debug.LogWarning($"配置文件为空: {configPath}，返回默认配置");
+                return new SystemEnvironmentConfig();
             }
             
-            
-            if (configPath != null)
+            try
             {
-                try
-                {
-                    string json = File.ReadAllText(configPath);
-                    var wrapper = JsonUtility.FromJson<AssemblyConfigDataWrapper>(json);
-                    return wrapper._assemblyConfigs ?? new List<AssemblyDefinitionConfig>();
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"加载程序集配置失败: {ex.Message}");
-                    return new List<AssemblyDefinitionConfig>();
-                }
+                return JsonUtility.FromJson<SystemEnvironmentConfig>(json);
             }
-            
-            // 如果两个路径都没有配置文件，则返回空列表，让系统生成新的
-            return new List<AssemblyDefinitionConfig>();
+            catch (UnityException ex)
+            {
+                Debug.LogWarning($"配置文件格式错误或损坏: {configPath}，返回默认配置。错误详情: {ex.Message}");
+                return new SystemEnvironmentConfig();
+            }
         }
         
-        // 检查系统变量配置是否存在（真实存在文件，而非默认配置）
-        public static bool IsSystemVariablesConfigured()
-        {
-            return File.Exists(SystemVariablesPath);
-        }
-        
-        // 内部类定义
-        [Serializable]
-        private class SystemVariablesContainer
-        {
-            public List<SystemVariableEntry> _entries = new List<SystemVariableEntry>();
-        }
-        
-        [Serializable]
-        private class SystemVariableEntry
-        {
-            public string _key;
-            public string _path;
-        }
-        
-        [Serializable]
-        private class AssemblyConfigDataWrapper
-        {
-            public List<AssemblyDefinitionConfig> _assemblyConfigs = new List<AssemblyDefinitionConfig>();
-        }
+      
+       
     }
 }

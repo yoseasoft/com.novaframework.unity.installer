@@ -1,6 +1,4 @@
 /// -------------------------------------------------------------------------------
-/// CoreEngine Editor Framework
-///
 /// Copyright (C) 2025 - 2026, Hainan Yuanyou Information Technology Co., Ltd. Guangzhou Branch
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,7 +25,7 @@ using System.Collections.Generic;
 using System.Xml;
 using UnityEngine;
 
-namespace CoreEngine.Editor.Installer
+namespace NovaFramework.Editor.Installer
 {
     /// <summary>
     /// 解析包配置XML文件的工具类

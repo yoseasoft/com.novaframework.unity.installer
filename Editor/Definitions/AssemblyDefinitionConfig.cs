@@ -1,6 +1,4 @@
 /// -------------------------------------------------------------------------------
-/// CoreEngine Editor Framework
-///
 /// Copyright (C) 2025 - 2026, Hainan Yuanyou Information Technology Co., Ltd. Guangzhou Branch
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,7 +23,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace CoreEngine.Editor.Installer
+namespace NovaFramework.Editor.Installer
 {
     [Serializable]
     public class AssemblyDefinitionConfig

@@ -4,7 +4,7 @@ using System.IO.Compression;
 using UnityEditor;
 using UnityEngine;
 
-namespace CoreEngine.Editor.Installer
+namespace NovaFramework.Editor.Installer
 {
     public class ZipHelper
     {

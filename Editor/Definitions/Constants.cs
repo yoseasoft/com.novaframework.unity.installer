@@ -1,6 +1,4 @@
 /// -------------------------------------------------------------------------------
-/// CoreEngine Editor Framework
-///
 /// Copyright (C) 2025 - 2026, Hainan Yuanyou Information Technology Co., Ltd. Guangzhou Branch
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,7 +23,7 @@
 using System.IO;
 using UnityEngine;
 
-namespace CoreEngine.Editor.Installer
+namespace NovaFramework.Editor.Installer
 {
     /// <summary>
     /// 框架安装器的常量定义

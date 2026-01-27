@@ -1,6 +1,4 @@
 /// -------------------------------------------------------------------------------
-/// CoreEngine Editor Framework
-///
 /// Copyright (C) 2025 - 2026, Hainan Yuanyou Information Technology Co., Ltd. Guangzhou Branch
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,7 +27,7 @@ using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
-namespace CoreEngine.Editor.Installer
+namespace NovaFramework.Editor.Installer
 {
     /// <summary>
     /// 处理包的manifest.json文件，包括安装、卸载、更新等操作

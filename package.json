@@ -1,7 +1,7 @@
 {
   "name": "com.novaframework.unity.installer",
   "displayName": "NovaFramework.Installer",
-  "description": "The installer module of core system for NovaFramework",
+  "description": "The installer module for NovaFramework",
   "version": "1.0.2",
   "unity": "2018.3",
   "unityRelease": "0f1",

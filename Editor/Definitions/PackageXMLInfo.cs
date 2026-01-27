@@ -1,7 +1,5 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
@@ -10,13 +8,6 @@ namespace NovaFramework.Editor.Installer
         public Dictionary<string, string> environmentVariables = new Dictionary<string, string>();
         public List<SystemPathInfo> systemPathInfos = new List<SystemPathInfo>();
         public List<PackageInfo> packageInfos = new List<PackageInfo>();
-        
-        public void ClearData()
-        {
-            environmentVariables.Clear();
-            systemPathInfos.Clear();
-            packageInfos.Clear();
-        }
     }
     
     public class SystemPathInfo

@@ -23,7 +23,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -37,9 +36,7 @@ namespace NovaFramework.Editor.Installer
             bool confirm = EditorUtility.DisplayDialog(
                 "重置安装", 
                 "此操作将删除所有安装的配置和文件，包括:\n" +
-                "- 删除 Assets/Resources/FrameworkSetting.asset\n" +
-                "- 删除 Assets/Resources/SystemVariables.json\n" +
-                "- 删除 Assets/Resources/AssemblyConfig.json\n" +
+                "- 删除 Assets/Resources 目录（包含所有配置文件）\n" +
                 "- 删除 Assets/Sources 目录\n" +
                 "- 删除 Assets/_Resources 目录\n" +
                 "- 删除 Assets/Scenes 目录\n" +
@@ -59,18 +56,22 @@ namespace NovaFramework.Editor.Installer
         {
             try
             {
-                // 1. 删除配置文件
+                // 1. 清除UserSettings中的配置
+                ClearUserSettings();
+                
+                // 2. 删除配置文件
                 DeleteConfigFiles();
                 
-                // 2. 删除目录
+                // 3. 删除目录
                 DeleteCreatedDirectories();
                 
-                // 3. 重置包管理
+                // 4. 重置包管理
                 ResetPackages();
                 
-                // 4. 刷新Unity
+                // 5. 刷新Unity
                 AssetDatabase.Refresh();
                 
+                // 完成
                 EditorUtility.DisplayDialog("重置完成", "框架安装已重置，所有相关文件和配置已被删除。", "确定");
             }
             catch (Exception e)
@@ -80,13 +81,52 @@ namespace NovaFramework.Editor.Installer
             }
         }
 
+        // 安全检查方法，确保要删除的路径在项目范围内且不是危险路径
+        private static bool IsSafeToDelete(string path, string projectRoot)
+        {
+            try
+            {
+                // 规范化路径
+                string normalizedPath = Path.GetFullPath(path);
+                string normalizedProjectRoot = Path.GetFullPath(projectRoot);
+                
+                // 检查路径是否在项目根目录下
+                if (!normalizedPath.StartsWith(normalizedProjectRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false; // 路径在项目外，不安全
+                }
+                
+                // 检查是否是项目根目录本身或Assets目录本身
+                if (string.Equals(normalizedPath, normalizedProjectRoot, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(normalizedPath, Path.Combine(normalizedProjectRoot, "Assets"), StringComparison.OrdinalIgnoreCase))
+                {
+                    return false; // 不能删除项目根目录或Assets目录本身
+                }
+                
+                // 检查路径中是否包含危险组件
+                string relativePath = normalizedPath.Substring(normalizedProjectRoot.Length).TrimStart('/', '\\');
+                string[] pathParts = relativePath.Split('/', '\\');
+                
+                foreach (string part in pathParts)
+                {
+                    if (part == ".." || part == ".")
+                    {
+                        return false; // 包含路径遍历组件，不安全
+                    }
+                }
+                
+                return true; // 路径安全
+            }
+            catch
+            {
+                return false; // 如果有任何错误，视为不安全
+            }
+        }
+        
         private static void DeleteConfigFiles()
         {
             string[] configFiles = {
-                DataManager.FrameworkSettingPath,
-                DataManager.SystemVariablesPath,
-                DataManager.AssemblyConfigPath,
-                "Assets/GameConfigs/ProjectConfig.asset" // 如果存在的话
+                Constants.SYSTEM_ENVIRONMENTS_PATH,  // 使用实际的配置文件路径
             };
 
             foreach (string configFile in configFiles)
@@ -98,10 +138,20 @@ namespace NovaFramework.Editor.Installer
                     Debug.Log($"已删除配置文件: {fullPath}");
                 }
             }
+            
+            // 删除安装完成标记文件，允许重新安装
+            string installMarkerPath = Path.Combine(Application.dataPath, "..", "INSTALL_COMPLETE.marker");
+            if (File.Exists(installMarkerPath))
+            {
+                File.Delete(installMarkerPath);
+                Debug.Log($"已删除安装完成标记文件: {installMarkerPath}");
+            }
         }
 
         private static void DeleteCreatedDirectories()
         {
+            string projectRoot = Directory.GetParent(Application.dataPath).ToString();
+            
             string[] directories = {
                 "Assets/Sources",
                 "Assets/_Resources",       // 根据规范必须删除
@@ -111,48 +161,43 @@ namespace NovaFramework.Editor.Installer
 
             foreach (string dir in directories)
             {
-                string fullPath = Path.Combine(Directory.GetParent(Application.dataPath).ToString(), dir);
+                string fullPath = Path.Combine(projectRoot, dir.Replace("/", Path.DirectorySeparatorChar.ToString()));
                 string metaPath = fullPath + ".meta";
                 
-                if (Directory.Exists(fullPath))
+                // 安全检查：确保路径在项目内且不包含敏感路径
+                if (IsSafeToDelete(fullPath, projectRoot))
                 {
-                    try
+                    if (Directory.Exists(fullPath))
                     {
                         // 删除目录及其所有内容
                         Directory.Delete(fullPath, true);
                         Debug.Log($"已删除目录: {fullPath}");
                     }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"删除目录失败: {fullPath}, 错误: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    Debug.Log($"目录不存在，跳过删除: {fullPath}");
-                }
-                
-                // 同时删除可能存在的.meta文件
-                if (File.Exists(metaPath))
-                {
-                    try
+                   
+                    
+                    // 同时删除可能存在的.meta文件
+                    if (File.Exists(metaPath))
                     {
                         File.Delete(metaPath);
                         Debug.Log($"已删除元数据文件: {metaPath}");
                     }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"删除元数据文件失败: {metaPath}, 错误: {ex.Message}");
-                    }
                 }
+               
             }
             
             // 特别处理AOT_LIBRARY_PATH和LINK_LIBRARY_PATH目录
             // 首先尝试从现有配置加载（如果存在）
             var systemVariables = new Dictionary<string, string>();
-            if (File.Exists(DataManager.SystemVariablesPath))
+            if (File.Exists(Constants.SYSTEM_ENVIRONMENTS_PATH))
             {
-                systemVariables = DataManager.LoadSystemVariables();
+                var envConfig = DataManager.LoadSystemEnvironmentsConfig();
+                if (envConfig.variables != null)
+                {
+                    foreach (var variable in envConfig.variables)
+                    {
+                        systemVariables[variable.key] = variable.value;
+                    }
+                }
             }
             else
             {
@@ -160,56 +205,42 @@ namespace NovaFramework.Editor.Installer
                 systemVariables = DataManager.GetDefaultSystemVariables();
             }
             
-            if (systemVariables.ContainsKey("AOT_LIBRARY_PATH"))
+            if (systemVariables.ContainsKey("SCRIPT_FILE_PATH"))
             {
-                string aotPath = Path.Combine(Directory.GetParent(Application.dataPath).ToString(), systemVariables["AOT_LIBRARY_PATH"]);
-                if (Directory.Exists(aotPath))
+                string aotPath = Path.Combine(projectRoot, systemVariables["SCRIPT_FILE_PATH"].Replace("/", Path.DirectorySeparatorChar.ToString()));
+                // 再次进行安全检查
+                if (IsSafeToDelete(aotPath, projectRoot))
                 {
-                    try
+                    if (Directory.Exists(aotPath))
                     {
                         Directory.Delete(aotPath, true);
-                        Debug.Log($"已删除AOT目录: {aotPath}");
                     }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"删除AOT目录失败: {aotPath}, 错误: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    Debug.Log($"AOT目录不存在，跳过删除: {aotPath}");
                 }
             }
             
-            if (systemVariables.ContainsKey("LINK_LIBRARY_PATH"))
-            {
-                string linkPath = Path.Combine(Directory.GetParent(Application.dataPath).ToString(), systemVariables["LINK_LIBRARY_PATH"]);
-                if (Directory.Exists(linkPath))
-                {
-                    try
-                    {
-                        Directory.Delete(linkPath, true);
-                        Debug.Log($"已删除链接库目录: {linkPath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"删除链接库目录失败: {linkPath}, 错误: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    Debug.Log($"链接库目录不存在，跳过删除: {linkPath}");
-                }
-            }
+           
         }
 
+        private static void ClearUserSettings()
+        {
+            // 清除UserSettings中的配置
+            UserSettings.SetString(Constants.DIRECTORY_CONFIG_KEY, null);
+            // 对于SetObject，传递空列表而不是null以避免序列化错误
+            UserSettings.SetObject<List<AssemblyDefinitionInfo>>(Constants.ASSEMBLY_CONFIG_KEY, new List<AssemblyDefinitionInfo>());
+            Debug.Log("已清除UserSettings中的配置");
+        }
+        
         private static void ResetPackages()
         {
-            PackageManager.ResetData();
-            GitManager.SavePackage(PackageManager.GetSelectedPackages());
-            DataManager.SaveSelectPackage(PackageManager.GetSelectedPackages());
+            //跳过 com.novaframework.unity.core.common 包卸载
+            foreach (var selectedPackageName in PackageManager.GetSelectedPackageNames())
+            {
+                if (selectedPackageName != Constants.COMMON_PACKAGE_NAME)
+                {
+                    GitManager.UninstallPackage(selectedPackageName);
+                }
+            }
+            DataManager.ResetPersistedSelectedPackages();
         }
     }
 }
-
-

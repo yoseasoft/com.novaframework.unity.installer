@@ -21,7 +21,6 @@
 /// -------------------------------------------------------------------------------
 
 using UnityEditor;
-using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
@@ -50,7 +49,8 @@ namespace NovaFramework.Editor.Installer
         [MenuItem("Tools/检查更新", priority = 4)]
         public static void ShowUpdateChecker()
         {
-            UpdateManager.CheckForUpdatesMenu();
+            GitManager.UpdateSinglePackage(Constants.COMMON_PACKAGE_NAME);
+            GitManager.UpdateSinglePackage(Constants.INSTALLER_PACKAGE_NAME);
         }
         
         [MenuItem("Tools/验证环境", priority = 5)]
@@ -59,16 +59,5 @@ namespace NovaFramework.Editor.Installer
             EnvironmentValidator.ShowValidationResult();
         }
         
-        [MenuItem("Tools/工具帮助", priority = 6)]
-        public static void ShowHelp()
-        {
-            AutoInstallManager.ShowHelpWindow();
-        }
-        
-        [MenuItem("Tools/查找到Zip", priority = 7)]
-        public static void FindZipFile()
-        {
-            AutoInstallManager.FindUIZipFile();
-        }
     }
 }

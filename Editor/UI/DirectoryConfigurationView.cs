@@ -70,20 +70,8 @@ namespace NovaFramework.Editor.Installer
                 string currentValue = _systemVariables.ContainsKey(pathInfo.name) ? 
                     _systemVariables[pathInfo.name] : pathInfo.defaultValue;
                     
-                string newValue = EditorGUILayout.TextField(currentValue);
-                
-                // 如果值发生变化，更新系统变量字典
-                if (newValue != currentValue)
-                {
-                    if (_systemVariables.ContainsKey(pathInfo.name))
-                    {
-                        _systemVariables[pathInfo.name] = newValue;
-                    }
-                    else
-                    {
-                        _systemVariables.Add(pathInfo.name, newValue);
-                    }
-                }
+                // 显示当前路径，但不允许直接编辑
+                GUILayout.Label(currentValue, GUILayout.ExpandWidth(true));
                 
                 // 添加浏览按钮，让用户可以选择目录
                 if (GUILayout.Button("浏览", GUILayout.Width(60)))
@@ -92,7 +80,6 @@ namespace NovaFramework.Editor.Installer
                     if (!string.IsNullOrEmpty(selectedPath))
                     {
                         // 将绝对路径转换为Assets后的路径
-                        string assetsPath = UnityEngine.Application.dataPath;
                         int assetsIndex = selectedPath.IndexOf("Assets");
                         if (assetsIndex >= 0)
                         {
@@ -101,7 +88,7 @@ namespace NovaFramework.Editor.Installer
                         else
                         {
                             // 如果路径不包含Assets，则转换为相对路径（相对于项目根目录）
-                            string projectPath = System.IO.Path.GetDirectoryName(UnityEngine.Application.dataPath);
+                            string projectPath = Path.GetDirectoryName(Application.dataPath);
                             if (selectedPath.StartsWith(projectPath))
                             {
                                 selectedPath = selectedPath.Substring(projectPath.Length + 1);
@@ -133,7 +120,7 @@ namespace NovaFramework.Editor.Installer
             GUILayout.FlexibleSpace(); // 左侧弹性空间
             
             // 按钮使用标准尺寸 - 符合规范要求
-            if (GUILayout.Button("保存目录配置", GUILayout.Width(120), GUILayout.Height(30)))
+            if (GUILayout.Button("保存", GUILayout.Width(120), GUILayout.Height(30)))
             {
                 SaveDirectoryConfiguration();
             }
@@ -141,7 +128,7 @@ namespace NovaFramework.Editor.Installer
             // 添加按钮间的间距 - 符合规范要求
             GUILayout.Space(10);
             
-            if (GUILayout.Button("重置为默认", GUILayout.Width(100), GUILayout.Height(30)))
+            if (GUILayout.Button("重置", GUILayout.Width(120), GUILayout.Height(30)))
             {
                 _systemVariables = GetDefaultSystemVariablesFromPathInfos();
             }
@@ -152,8 +139,10 @@ namespace NovaFramework.Editor.Installer
         
         public void SaveDirectoryConfiguration()
         {
-            DataManager.SaveSystemVariables(_systemVariables);
-            EditorUtility.DisplayDialog("保存成功", "系统变量配置已保存到 " + DataManager.SystemVariablesPath, "确定");
+            // 保存到CoreEngine.Editor.UserSettings
+            UserSettings.SetObject(Constants.DIRECTORY_CONFIG_KEY, _systemVariables);
+            
+            EditorUtility.DisplayDialog("保存成功", "系统变量配置已保存到UserSettings", "确定");
         }
         
         public void RefreshData()
@@ -162,15 +151,29 @@ namespace NovaFramework.Editor.Installer
             PackageManager.LoadData();
             _systemPathInfos = PackageManager.SystemPathInfos;
             
-            // 加载当前系统变量配置
-            _systemVariables = DataManager.LoadSystemVariables();
+            // 优先从CoreEngine.Editor.UserSettings加载配置，如果不存在则从DataManager加载
+            try
+            {
+                _systemVariables = UserSettings.GetObject<Dictionary<string, string>>(Constants.DIRECTORY_CONFIG_KEY);
+            }
+            catch (Exception e)
+            { 
+                string errorMessage = e.Message;
+                _systemVariables = DataManager.LoadSystemVariables();
+            }
+            
+            if (_systemVariables == null)
+            {
+                _systemVariables = DataManager.LoadSystemVariables();
+            }
             
             // 确保所有系统路径信息中的变量都在_systemVariables字典中
             foreach (var pathInfo in _systemPathInfos)
             {
                 if (!_systemVariables.ContainsKey(pathInfo.name))
                 {
-                    _systemVariables[pathInfo.name] = pathInfo.defaultValue;
+                    // 只有required=true的路径才设值，否则就置空
+                    _systemVariables[pathInfo.name] = pathInfo.isRequired ? pathInfo.defaultValue : "";
                 }
             }
         }
@@ -181,7 +184,8 @@ namespace NovaFramework.Editor.Installer
             var variables = new Dictionary<string, string>();
             foreach (var pathInfo in _systemPathInfos)
             {
-                variables[pathInfo.name] = pathInfo.defaultValue;
+                // 只有required=true的路径才设值，否则就置空
+                variables[pathInfo.name] = pathInfo.isRequired ? pathInfo.defaultValue : "";
             }
             return variables;
         }

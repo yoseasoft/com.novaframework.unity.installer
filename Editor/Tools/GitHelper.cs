@@ -32,6 +32,8 @@ namespace NovaFramework.Editor.Installer
     {
         public static bool CloneRepository(string url, string destinationPath)
         {
+            UnityEngine.Debug.Log($"[GitHelper] 开始克隆: {url} -> {destinationPath}");
+            
             try
             {
                 // 确保目标目录的父目录存在
@@ -58,58 +60,39 @@ namespace NovaFramework.Editor.Installer
                     
                     process.WaitForExit();
                     
+                    UnityEngine.Debug.Log($"[GitHelper] 克隆完成，ExitCode: {process.ExitCode}");
+                    
                     if (process.ExitCode == 0)
                     {
-                        UnityEngine.Debug.Log($"成功克隆仓库: {url} 到 {destinationPath}");
-                        AssetDatabase.Refresh();
+                        // 注意：不在这里调用 AssetDatabase.Refresh()
+                        // 因为会触发脚本重编译，中断安装流程
+                        // 统一在所有包安装完成后调用
+                        UnityEngine.Debug.Log($"[GitHelper] 克隆成功: {destinationPath}");
                         return true;
                     }
                     else
                     {
-                        UnityEngine.Debug.LogError($"Git克隆失败: {error}");
+                        UnityEngine.Debug.LogError($"[GitHelper] Git克隆失败: {error}");
                         return false;
                     }
                 }
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"Git操作异常: {e.Message}");
+                UnityEngine.Debug.LogError($"[GitHelper] Git操作异常: {e.Message}");
                 return false;
             }
         }
-        
-        public static bool IsGitInstalled()
-        {
-            try
-            {
-                ProcessStartInfo startInfo = new ProcessStartInfo
-                {
-                    FileName = "git",
-                    Arguments = "--version",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true
-                };
-                
-                using (Process process = Process.Start(startInfo))
-                {
-                    process.WaitForExit();
-                    return process.ExitCode == 0;
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        }
-        
+     
         public static bool PullRepository(string repositoryPath)
         {
+            UnityEngine.Debug.Log($"[GitHelper] 开始更新仓库: {repositoryPath}");
+            
             try
             {
                 if (!Directory.Exists(repositoryPath))
                 {
-                    UnityEngine.Debug.LogError($"仓库路径不存在: {repositoryPath}");
+                    UnityEngine.Debug.LogError($"[GitHelper] 仓库路径不存在: {repositoryPath}");
                     return false;
                 }
                 
@@ -131,22 +114,25 @@ namespace NovaFramework.Editor.Installer
                     
                     process.WaitForExit();
                     
+                    UnityEngine.Debug.Log($"[GitHelper] 更新完成，ExitCode: {process.ExitCode}");
+                    
                     if (process.ExitCode == 0)
                     {
-                        UnityEngine.Debug.Log($"成功更新仓库: {repositoryPath}\n{output}");
-                        AssetDatabase.Refresh();
+                        // 注意：不在这里调用 AssetDatabase.Refresh()
+                        // 因为会触发脚本重编译，中断更新流程
+                        UnityEngine.Debug.Log($"[GitHelper] 更新成功: {repositoryPath}");
                         return true;
                     }
                     else
                     {
-                        UnityEngine.Debug.LogError($"Git pull 失败: {error}");
+                        UnityEngine.Debug.LogError($"[GitHelper] Git pull 失败: {error}");
                         return false;
                     }
                 }
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"Git pull 操作异常: {e.Message}");
+                UnityEngine.Debug.LogError($"[GitHelper] Git pull 操作异常: {e.Message}");
                 return false;
             }
         }

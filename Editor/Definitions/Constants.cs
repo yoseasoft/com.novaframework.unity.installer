@@ -33,7 +33,7 @@ namespace NovaFramework.Editor.Installer
     {
 
         // 默认资源路径
-        private const string USER_INSTALLER_ROOT_PATH = "Assets/../NovaFrameworkData/framework_repo/com.novaframework.unity.installer";
+        private const string USER_INSTALLER_ROOT_PATH = Context.LocalInstallPathOfNovaFrameworkRepositoryFolder + @"com.novaframework.unity.installer";
        
         // 默认资源路径
         public static string DEFAULT_INSTALLER_ROOT_PATH

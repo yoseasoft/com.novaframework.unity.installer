@@ -188,7 +188,7 @@ namespace NovaFramework.Editor.Installer
             else
             {
                 // 无论是否自动保存，都不显示错误对话框
-                Debug.LogWarning("无法保存：程序集配置为空");
+                Debug.LogWarning("无法保存：程序集配置为空了");
             }
         }
         

@@ -32,7 +32,8 @@ namespace NovaFramework.Editor.Installer
         // 程序集配置相关
         private List<AssemblyDefinitionInfo> _assemblyConfigs;
         private Vector2 _assemblyScrollPos;
-        private Dictionary<string, bool> _controlFocusStates = new Dictionary<string, bool>(); // 跟踪每个控件的焦点状态
+        private double _lastSaveTime = 0;
+        private const double SAVE_DELAY = 0.3; // 300毫秒延迟
 
         public AssemblyConfigurationView()
         {
@@ -107,14 +108,12 @@ namespace NovaFramework.Editor.Installer
             
             string newName = EditorGUILayout.TextField(config.name, GUILayout.ExpandWidth(true));
             
-            // 更新名称但不立即保存
+            // 更新名称并延迟保存
             if (newName != config.name)
             {
                 config.name = newName;
+                DelaySaveAssemblyConfiguration();
             }
-            
-            // 检查焦点状态变化
-            CheckAndHandleFocusChange(nameTextFieldId);
             
             if (GUILayout.Button("移除", GUILayout.Width(60)))
             {
@@ -134,14 +133,12 @@ namespace NovaFramework.Editor.Installer
             
             int newOrder = EditorGUILayout.IntField(config.order, GUILayout.Width(100));
             
-            // 更新顺序但不立即保存
+            // 更新顺序并延迟保存
             if (newOrder != config.order)
             {
                 config.order = newOrder;
+                DelaySaveAssemblyConfiguration();
             }
-            
-            // 检查焦点状态变化
-            CheckAndHandleFocusChange(orderFieldId);
             
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
@@ -158,8 +155,7 @@ namespace NovaFramework.Editor.Installer
                 SaveAssemblyConfiguration();
             });
             
-            // 检查焦点状态变化
-            CheckAndHandleFocusChange(tagsFieldId);
+
             
             EditorGUILayout.EndHorizontal();
             
@@ -182,8 +178,8 @@ namespace NovaFramework.Editor.Installer
                 
                 UserSettings.SetObject(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY, _assemblyConfigs);
                 
-                // 总是导出配置，但不选中文件
-                ExportConfigurationMenu.ExportConfiguration(false); // 总是不选中文件
+                // 不自动导出配置，仅保存到UserSettings
+                // 导出配置由菜单手动触发
             }
             else
             {
@@ -324,29 +320,6 @@ namespace NovaFramework.Editor.Installer
             public System.Action onTagsChanged;
         }
         
-        // 检查并处理控件焦点状态变化
-        private void CheckAndHandleFocusChange(string controlId)
-        {
-            // 初始化焦点状态字典
-            if (!_controlFocusStates.ContainsKey(controlId))
-            {
-                _controlFocusStates[controlId] = false;
-            }
-            
-            // 检查焦点状态变化
-            bool hasFocus = GUI.GetNameOfFocusedControl() == controlId;
-            bool previousFocusState = _controlFocusStates[controlId];
-            
-            // 如果之前有焦点，现在没有焦点，则说明失去了焦点
-            if (previousFocusState && !hasFocus && Event.current.type == EventType.Repaint)
-            {
-                SaveAssemblyConfiguration();
-            }
-            
-            // 更新焦点状态
-            _controlFocusStates[controlId] = hasFocus;
-        }
-        
         // 处理标签切换的回调函数
         private static void OnTagToggle(object userData)
         {
@@ -363,5 +336,22 @@ namespace NovaFramework.Editor.Installer
             }
             
         }
+        
+        // 延迟保存配置，避免频繁保存
+        private void DelaySaveAssemblyConfiguration()
+        {
+            _lastSaveTime = EditorApplication.timeSinceStartup + SAVE_DELAY;
+            EditorApplication.update += PerformDelayedSave;
+        }
+        
+        private void PerformDelayedSave()
+        {
+            if (EditorApplication.timeSinceStartup >= _lastSaveTime)
+            {
+                EditorApplication.update -= PerformDelayedSave;
+                SaveAssemblyConfiguration();
+            }
+        }
+        
     }
 }

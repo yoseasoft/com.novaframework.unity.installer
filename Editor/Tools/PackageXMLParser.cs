@@ -30,7 +30,7 @@ namespace NovaFramework.Editor.Installer
     /// <summary>
     /// 解析包配置XML文件的工具类
     /// </summary>
-    public class PackageXMLParser
+    internal class PackageXMLParser
     {
         /// <summary>
         /// 解析XML文件并返回包信息列表

@@ -24,7 +24,7 @@ using UnityEditor;
 
 namespace NovaFramework.Editor.Installer
 {
-    public static class MainMenu
+    internal static class MainMenu
     {
         
         [MenuItem("Tools/自动安装 _F8", priority = 2, validate = true)]

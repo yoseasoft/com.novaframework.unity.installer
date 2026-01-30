@@ -3,7 +3,7 @@ namespace NovaFramework.Editor.Installer
     /// <summary>
     /// 程序集标签定义
     /// </summary>
-    public static class AssemblyTags
+    internal static class AssemblyTags
     {
         public const string Core = "Core";
         public const string Module = "Module";  // 原Package

@@ -28,7 +28,7 @@ using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
-    public class ResetManager
+    internal class ResetManager
     {
         [MenuItem("Tools/重置安装 %#R", priority = 9)]
         public static void ShowResetDialog()
@@ -139,13 +139,9 @@ namespace NovaFramework.Editor.Installer
                 }
             }
             
-            // 删除安装完成标记文件，允许重新安装
-            string installMarkerPath = Path.Combine(Application.dataPath, "..", "INSTALL_COMPLETE.marker");
-            if (File.Exists(installMarkerPath))
-            {
-                File.Delete(installMarkerPath);
-                Debug.Log($"已删除安装完成标记文件: {installMarkerPath}");
-            }
+            UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, false);
+           
+            Debug.Log($"已重置安装完成标记文件: false");
         }
 
         private static void DeleteCreatedDirectories()
@@ -224,9 +220,9 @@ namespace NovaFramework.Editor.Installer
         private static void ClearUserSettings()
         {
             // 清除UserSettings中的配置
-            UserSettings.SetString(Constants.DIRECTORY_CONFIG_KEY, null);
+            UserSettings.SetString(Constants.NovaFramework_Installer_DIRECTORY_CONFIG_KEY, null);
             // 对于SetObject，传递空列表而不是null以避免序列化错误
-            UserSettings.SetObject<List<AssemblyDefinitionInfo>>(Constants.ASSEMBLY_CONFIG_KEY, new List<AssemblyDefinitionInfo>());
+            UserSettings.SetObject<List<AssemblyDefinitionInfo>>(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY, new List<AssemblyDefinitionInfo>());
             Debug.Log("已清除UserSettings中的配置");
         }
         

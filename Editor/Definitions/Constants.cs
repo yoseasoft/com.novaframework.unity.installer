@@ -29,7 +29,7 @@ namespace NovaFramework.Editor.Installer
     /// <summary>
     /// 框架安装器的常量定义
     /// </summary>
-    public static class Constants
+    internal static class Constants
     {
         /// <summary>
         /// 安装模块的本地包名
@@ -98,14 +98,13 @@ namespace NovaFramework.Editor.Installer
         public static readonly string FRAMEWORK_REPO_PATH = Path.Combine(Path.GetDirectoryName(Application.dataPath), SAVE_PACKAGE_RELATIVE_PATH).Replace("\\", "/");
         
         // UserSettings 键值常量
-        public const string DIRECTORY_CONFIG_KEY = "DirectoryConfig.SystemVariables";
-        public const string ASSEMBLY_CONFIG_KEY = "AssemblyConfig.Configs";
+        public const string NovaFramework_Installer_DIRECTORY_CONFIG_KEY = "NovaFramework_Installer.DirectoryConfig.SystemVariables";
+        public const string NovaFramework_Installer_ASSEMBLY_CONFIG_KEY = "NovaFramework_Installer.AssemblyConfig.Configs";
+        public const string NovaFramework_Installer_PACKAGE_NAME_LIST_KEY = "NovaFramework_Installer.PACKAGE_NAME_LIST_KEY";      // 安装包列表名
+        public const string NovaFramework_Installer_INSTALLER_COMPLETE_KEY = "NovaFramework_Installer.INSTALLER_COMPLETE_MARK";     //完成安装的key
         
         //用于git更新的包名
         public const string INSTALLER_PACKAGE_NAME = LocalPackageNameOfInstallerModule;
         public const string COMMON_PACKAGE_NAME = ContextSettings.LocalPackageNameOfCommonModule;
-        
-        //获取UserSetting中package数据的key
-        public const string PACKAGE_KEY_NAME = "PACKAGE_KEY_NAME";
     } 
 }

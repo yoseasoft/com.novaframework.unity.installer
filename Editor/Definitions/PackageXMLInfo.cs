@@ -3,14 +3,14 @@ using System.Collections.Generic;
 
 namespace NovaFramework.Editor.Installer
 {
-    public class PackageXMLInfo
+    internal class PackageXMLInfo
     {
         public Dictionary<string, string> environmentVariables = new Dictionary<string, string>();
         public List<SystemPathInfo> systemPathInfos = new List<SystemPathInfo>();
         public List<PackageInfo> packageInfos = new List<PackageInfo>();
     }
     
-    public class SystemPathInfo
+    internal class SystemPathInfo
     {
         public string name;
         public string defaultValue;
@@ -19,7 +19,7 @@ namespace NovaFramework.Editor.Installer
     }
     
     [Serializable]
-    public class AssemblyDefinitionInfo
+    internal class AssemblyDefinitionInfo
     {
         public string name;
         public int order = 0; // 排序值
@@ -27,7 +27,7 @@ namespace NovaFramework.Editor.Installer
     }
     
     [Serializable]
-    public class PackageInfo
+    internal class PackageInfo
     {
         public string name;
         public string displayName;

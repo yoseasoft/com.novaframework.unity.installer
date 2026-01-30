@@ -29,7 +29,7 @@ using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
-    public class EnvironmentValidator
+    internal class EnvironmentValidator
     {
         // 验证环境是否已正确安装
         public static ValidationResult ValidateEnvironment()
@@ -339,7 +339,7 @@ namespace NovaFramework.Editor.Installer
 
     }
 
-    public class ValidationResult
+    internal class ValidationResult
     {
         public bool IsValid { get; set; }
         public ValidationItem CheckPackages { get; set; }
@@ -349,7 +349,7 @@ namespace NovaFramework.Editor.Installer
         public ValidationItem CheckAotLibraries { get; set; }
     }
 
-    public class ValidationItem
+    internal class ValidationItem
     {
         public string Name { get; set; }
         public bool IsValid { get; set; }

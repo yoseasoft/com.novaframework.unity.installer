@@ -30,7 +30,7 @@ using UnityEditor;
 namespace NovaFramework.Editor.Installer
 {
     //处理git安装的一系列操作
-    public static class GitManager
+    internal static class GitManager
     {
         // 最大重试次数（解决文件临时占用问题）
         private const int MAX_RETRY_COUNT = 3;

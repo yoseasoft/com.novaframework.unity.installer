@@ -28,12 +28,12 @@ using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
-   public static class DataManager
+    internal static class DataManager 
     {
         // 加载持久化数据中的包
         public static List<string> LoadPersistedSelectedPackages()
         {
-            List<string> persistedPackageNames = UserSettings.GetObject<List<string>>(Constants.PACKAGE_KEY_NAME);
+            List<string> persistedPackageNames = UserSettings.GetObject<List<string>>(Constants.NovaFramework_Installer_PACKAGE_NAME_LIST_KEY);
             if (persistedPackageNames == null)
             {
                 persistedPackageNames = new List<string>();
@@ -45,12 +45,12 @@ namespace NovaFramework.Editor.Installer
         // 持久化保存已选择的包
         public static void SavePersistedSelectedPackages(List<string> selectPackageNames)
         {
-            UserSettings.SetObject(Constants.PACKAGE_KEY_NAME, selectPackageNames);
+            UserSettings.SetObject(Constants.NovaFramework_Installer_PACKAGE_NAME_LIST_KEY, selectPackageNames);
         }
 
         public static void ResetPersistedSelectedPackages()
         {
-            UserSettings.SetObject(Constants.PACKAGE_KEY_NAME, new List<string>());
+            UserSettings.SetObject(Constants.NovaFramework_Installer_PACKAGE_NAME_LIST_KEY, new List<string>());
         }
         
   

@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace NovaFramework.Editor.Installer
 {
    // 为了兼容性，重新定义所需的数据结构
     [Serializable]
-    public class SystemEnvironmentConfig
+    internal class SystemEnvironmentConfig
     {
         public List<EnvironmentVariable> variables = new List<EnvironmentVariable>();
         public List<ModuleConfig> modules = new List<ModuleConfig>();
@@ -13,14 +13,14 @@ namespace NovaFramework.Editor.Installer
     }
     
     [Serializable]
-    public class EnvironmentVariable
+    internal class EnvironmentVariable
     {
         public string key;
         public string value;
     }
     
     [Serializable]
-    public class ModuleConfig
+    internal class ModuleConfig
     {
         public string name;
         public int order;

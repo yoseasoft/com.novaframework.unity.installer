@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
-    public class ZipHelper
+    internal class ZipHelper
     {
         /// <summary>
         /// 解压ZIP文件到指定目录

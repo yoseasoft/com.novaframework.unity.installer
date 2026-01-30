@@ -28,7 +28,7 @@ namespace NovaFramework.Editor.Installer
     /// 包管理器，负责处理包的数据逻辑
     /// 都是内存中的数据
     /// </summary>
-    public static class PackageManager
+    internal static class PackageManager
     {
         private static PackageXMLInfo _packageXMLInfo;
         private static List<PackageInfo> _packageInfoList = new List<PackageInfo>();

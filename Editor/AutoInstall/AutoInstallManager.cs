@@ -68,11 +68,21 @@ namespace NovaFramework.Editor.Installer
             
             if (packagesInstalled)
             {
-                // 插件包已安装，但配置未完成，直接打开配置中心
-                _progressWindow?.AddLog("插件包已安装，打开配置中心完成配置...");
+                // 插件包已安装，但配置未完成
+                _progressWindow?.AddLog("插件包已安装，等待Unity稳定后打开配置中心完成配置...");
                 
-                // 直接打开配置中心
-                ConfigurationWindow.StartAutoConfiguration();
+                // 延迟打开配置中心，确保Unity完全稳定
+                EditorApplication.delayCall += () =>
+                {
+                    // 重新检查状态，以防在此期间发生了变化
+                    bool isInstallationCompleteNow = UserSettings.GetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY);
+                    bool packagesStillInstalled = UserSettings.GetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY);
+                    
+                    if (!isInstallationCompleteNow && packagesStillInstalled)
+                    {
+                        ConfigurationWindow.StartAutoConfiguration();
+                    }
+                };
                 
                 // 设置步骤为完成，因为安装流程已完成，现在只需配置
                 _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
@@ -581,7 +591,7 @@ namespace NovaFramework.Editor.Installer
                 // 刷新Unity以加载更改
                 Client.Resolve();
                                 
-                // 在刷新后，AutoInstallManager会重新启动并检测到配置未完成，然后打开配置中心
+                // 不在这里打开配置中心，等待Unity刷新完成后由PackageInstallerLauncher触发AutoInstallManager
             }
         }
         

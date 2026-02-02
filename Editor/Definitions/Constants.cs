@@ -37,47 +37,12 @@ namespace NovaFramework.Editor.Installer
         public const string LocalPackageNameOfInstallerModule = @"com.novaframework.unity.installer";
 
         // 默认资源路径
-        private const string USER_INSTALLER_ROOT_PATH = ContextSettings.LocalInstallPathOfNovaFrameworkRepositoryFolder + LocalPackageNameOfInstallerModule;
-       
-        // 默认资源路径
         public static string DEFAULT_INSTALLER_ROOT_PATH
         {
             get
             {
-                if (Directory.Exists(USER_INSTALLER_ROOT_PATH))
-                {
-                    return  USER_INSTALLER_ROOT_PATH;
-                }
-                else
-                {
-                    // 使用AssetDatabase查找com.novaframework.unity.installer文件夹
-                    return FindInstallerFolderPathUsingAssetDatabase();
-                }
-                
+                return PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(LocalPackageNameOfInstallerModule);
             }
-        }
-        
-        // 使用AssetDatabase查找installer文件夹路径
-        private static string FindInstallerFolderPathUsingAssetDatabase()
-        {
-            // 使用AssetDatabase查找所有包含"com.novaframework.unity.installer"的路径
-            string[] allGuids = AssetDatabase.FindAssets(LocalPackageNameOfInstallerModule, null);
-            
-            foreach (string guid in allGuids)
-            {
-                string path = AssetDatabase.GUIDToAssetPath(guid);
-                // 检查是否是文件夹而不是其他资产类型
-                if (Directory.Exists(path))
-                {
-                    // 检查文件夹名称是否完全匹配
-                    if (Path.GetFileName(path) == LocalPackageNameOfInstallerModule)
-                    {
-                        return path;
-                    }
-                }
-            }
-            
-            return null; // 未找到
         }
         
         // 配置文件路径常量
@@ -105,6 +70,6 @@ namespace NovaFramework.Editor.Installer
         
         //用于git更新的包名
         public const string INSTALLER_PACKAGE_NAME = LocalPackageNameOfInstallerModule;
-        public const string COMMON_PACKAGE_NAME = ContextSettings.LocalPackageNameOfCommonModule;
+        public const string COMMON_PACKAGE_NAME = PersistencePath.LocalPackageNameOfCommonModule;
     } 
 }

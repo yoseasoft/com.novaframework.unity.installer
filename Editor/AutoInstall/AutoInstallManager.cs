@@ -69,13 +69,14 @@ namespace NovaFramework.Editor.Installer
             if (packagesInstalled)
             {
                 // 插件包已安装，但配置未完成
-                _progressWindow?.AddLog("插件包已安装，打开配置中心完成配置...");
+                _progressWindow?.AddLog("插件包已安装，但配置未完成，打开配置中心完成配置...");
+                
+                // 关闭进度窗口
+                _progressWindow?.Close();
+                _progressWindow = null;
                 
                 // 直接打开配置中心
                 ConfigurationWindow.StartAutoConfiguration();
-                
-                // 设置步骤为完成，因为安装流程已完成，现在只需配置
-                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
                 
                 return;
             }
@@ -147,14 +148,68 @@ namespace NovaFramework.Editor.Installer
         {
             if (currentIndex >= packagesList.Count)
             {
-                // 所有包已安装完成，现在执行完整的资源刷新
-                _progressWindow?.AddLog("所有包安装完成，正在刷新资源...");
+                // 所有包已安装完成，现在调用Client.Resolve()来解析所有包
+                _progressWindow?.AddLog("所有包安装完成，正在解析...");
                 
-                // 刷新资源
-                AssetDatabase.Refresh();
+                // 使用标志来跟踪解析是否完成
+                bool resolveCompleted = false;
                 
-                // 直接执行下一步
-                CreateDirectories();
+                // 注册包解析完成事件
+                Action<UnityEditor.PackageManager.PackageRegistrationEventArgs> onPackagesRegistered = null;
+                onPackagesRegistered = (args) =>
+                {
+                    // 当包注册事件触发时，认为解析完成
+                    UnityEditor.PackageManager.Events.registeringPackages -= onPackagesRegistered;
+                    
+                    _progressWindow?.AddLog("所有包解析完成");
+                    resolveCompleted = true;
+                };
+                
+                UnityEditor.PackageManager.Events.registeringPackages += onPackagesRegistered;
+                Client.Resolve();
+                
+                // 添加一个计时器来检测解析是否完成
+                int resolveCheckCount = 0;
+                int maxResolveChecks = 100; // 最多检查100次 (约5秒)
+                
+                EditorApplication.update += CheckResolveAndUpdate;
+                
+                void CheckResolveAndUpdate()
+                {
+                    resolveCheckCount++;
+                    if (resolveCompleted || resolveCheckCount >= maxResolveChecks)
+                    {
+                        // 停止监听更新事件
+                        EditorApplication.update -= CheckResolveAndUpdate;
+                        
+                        if (!resolveCompleted)
+                        {
+                            // 如果解析未完成，记录警告
+                            Debug.LogWarning("[AutoInstall] 解析超时，强制继续");
+                            _progressWindow?.AddLog("警告: 解析超时，强制继续");
+                            
+                            // 移除事件监听器
+                            try
+                            {
+                                UnityEditor.PackageManager.Events.registeringPackages -= onPackagesRegistered;
+                            }
+                            catch
+                            {
+                                // 忽略可能的异常
+                            }
+                        }
+                        
+                        // 解析完成后（或超时后），继续后续步骤
+                        EditorApplication.delayCall += () =>
+                        {
+                            // 刷新资源
+                            AssetDatabase.Refresh();
+                            
+                            // 直接执行下一步
+                            CreateDirectories();
+                        };
+                    }
+                }
                 
                 return;
             }
@@ -519,85 +574,28 @@ namespace NovaFramework.Editor.Installer
                         ExportConfigurationMenu.ExportConfiguration();
                         _progressWindow?.AddLog("已导出 system_environments.json 配置文件");
                                                 
-                        // 在所有包安装完成后，调用Client.Resolve()进行解析
-                        _progressWindow?.AddLog("正在解析所有安装的包...");
-                                                
-                        // 使用标志来跟踪解析是否完成
-                        bool resolveCompleted = false;
-                                                
-                        // 注册包解析完成事件
-                        Action<UnityEditor.PackageManager.PackageRegistrationEventArgs> onPackagesRegistered = null;
-                        onPackagesRegistered = (args) =>
+                        // 延迟打开场景
+                        EditorApplication.delayCall += () =>
                         {
-                            // 当包注册事件触发时，认为解析完成
-                            UnityEditor.PackageManager.Events.registeringPackages -= onPackagesRegistered;
+                            _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.OpenScene);
                                                     
-                            _progressWindow?.AddLog("所有包解析完成");
-                            resolveCompleted = true;
-                        };
-                                                
-                        UnityEditor.PackageManager.Events.registeringPackages += onPackagesRegistered;
-                        Client.Resolve();
-                                                
-                        // 添加一个计时器来检测解析是否完成
-                        int resolveCheckCount = 0;
-                        int maxResolveChecks = 100; // 最多检查100次 (约5秒)
-                                                
-                        EditorApplication.update += CheckResolveAndUpdate;
-                                                
-                        void CheckResolveAndUpdate()
-                        {
-                            resolveCheckCount++;
-                            if (resolveCompleted || resolveCheckCount >= maxResolveChecks)
+                            EditorApplication.delayCall += () =>
                             {
-                                // 停止监听更新事件
-                                EditorApplication.update -= CheckResolveAndUpdate;
+                                OpenMainScene();
                                                         
-                                if (!resolveCompleted)
-                                {
-                                    // 如果解析未完成，记录警告
-                                    Debug.LogWarning("[AutoInstall] 解析超时，强制继续");
-                                    _progressWindow?.AddLog("警告: 解析超时，强制继续");
-                                                            
-                                    // 移除事件监听器
-                                    try
-                                    {
-                                        UnityEditor.PackageManager.Events.registeringPackages -= onPackagesRegistered;
-                                    }
-                                    catch
-                                    {
-                                        // 忽略可能的异常
-                                    }
-                                }
-                                                        
-                                // 解析完成后（或超时后），继续后续步骤
-                                EditorApplication.delayCall += () =>
-                                {
-                                    // 延迟打开场景
-                                    EditorApplication.delayCall += () =>
-                                    {
-                                        _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.OpenScene);
-                                                                
-                                        EditorApplication.delayCall += () =>
-                                        {
-                                            OpenMainScene();
+                                // 在所有安装步骤完成后，设置插件包安装完成标记
+                                UserSettings.SetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY, true);
                                                                     
-                                            // 在所有安装步骤完成后，设置插件包安装完成标记
-                                            UserSettings.SetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY, true);
+                                // 关闭进度界面
+                                _progressWindow?.Close();
+                                _progressWindow = null;
                                                                     
-                                            // 关闭进度界面
-                                            _progressWindow?.Close();
-                                            _progressWindow = null;
+                                Debug.Log("安装流程完成，打开配置中心...");
                                                                     
-                                            Debug.Log("安装流程完成，打开配置中心...");
-                                                                    
-                                            // 打开配置中心
-                                            ConfigurationWindow.StartAutoConfiguration();
-                                        };
-                                    };
-                                };
-                            }
-                        }
+                                // 打开配置中心
+                                ConfigurationWindow.StartAutoConfiguration();
+                            };
+                        };
                     };
                 };
             };

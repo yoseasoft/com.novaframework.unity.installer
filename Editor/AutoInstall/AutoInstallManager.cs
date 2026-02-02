@@ -587,11 +587,7 @@ namespace NovaFramework.Editor.Installer
                                 
                 // 设置插件包安装完成标记
                 UserSettings.SetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY, true);
-                                                
-                // 刷新Unity以加载更改
-                Client.Resolve();
-                                
-                // 不在这里打开配置中心，等待Unity刷新完成后由PackageInstallerLauncher触发AutoInstallManager
+          
             }
         }
         

@@ -49,7 +49,7 @@ namespace NovaFramework.Editor.Installer
         {
             _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.CheckEnvironment);
             
-            // 检查是否已经安装过了
+            // 检查是否已经完成全部安装（包括配置）
             if (IsAlreadyInstalled())
             {
                 _progressWindow?.AddLog("检测到框架已经安装过了，无需重复安装。");
@@ -63,6 +63,23 @@ namespace NovaFramework.Editor.Installer
                 return;
             }
             
+            // 检查插件包是否已经安装，但配置尚未完成
+            bool packagesInstalled = UserSettings.GetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY);
+            
+            if (packagesInstalled)
+            {
+                // 插件包已安装，但配置未完成，直接打开配置中心
+                _progressWindow?.AddLog("插件包已安装，打开配置中心完成配置...");
+                
+                // 直接打开配置中心
+                ConfigurationWindow.StartAutoConfiguration();
+                
+                // 设置步骤为完成，因为安装流程已完成，现在只需配置
+                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
+                
+                return;
+            }
+            
             _progressWindow?.AddLog("环境检查通过，开始安装流程...");
             
             // 开始自动安装流程...
@@ -72,7 +89,7 @@ namespace NovaFramework.Editor.Installer
         // 检查是否已经安装过了
         public static bool IsAlreadyInstalled()
         {
-            // 防止在安装过程中因部分文件已存在而误判为已完整安装
+            // 检查是否已完成全部安装（包括配置）
             bool installed = UserSettings.GetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY);
 
             return installed;
@@ -553,6 +570,9 @@ namespace NovaFramework.Editor.Installer
                 
                 // 取消事件监听，避免重复触发
                 UnityEditor.PackageManager.Events.registeringPackages -= OnPackagesRegisteredAfterResolve;
+                
+                // 设置插件包安装完成标记
+                UserSettings.SetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY, true);
                 
                 // 延迟打开配置中心，确保所有资源都已加载完成
                 EditorApplication.delayCall += () =>

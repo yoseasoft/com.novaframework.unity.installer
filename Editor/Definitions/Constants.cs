@@ -67,6 +67,7 @@ namespace NovaFramework.Editor.Installer
         public const string NovaFramework_Installer_ASSEMBLY_CONFIG_KEY = "NovaFramework_Installer.AssemblyConfig.Configs";
         public const string NovaFramework_Installer_PACKAGE_NAME_LIST_KEY = "NovaFramework_Installer.PACKAGE_NAME_LIST_KEY";      // 安装包列表名
         public const string NovaFramework_Installer_INSTALLER_COMPLETE_KEY = "NovaFramework_Installer.INSTALLER_COMPLETE_MARK";     //完成安装的key
+        public const string NovaFramework_Installer_PACKAGES_INSTALLED_KEY = "NovaFramework_Installer.PACKAGES_INSTALLED_MARK";  // 插件包安装完成标记
         
         //用于git更新的包名
         public const string INSTALLER_PACKAGE_NAME = LocalPackageNameOfInstallerModule;

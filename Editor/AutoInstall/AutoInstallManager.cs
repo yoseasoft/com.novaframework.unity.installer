@@ -574,15 +574,14 @@ namespace NovaFramework.Editor.Installer
                 // 关闭进度窗口
                 _progressWindow?.Close();
                 _progressWindow = null;
-                                                
+                                
                 // 设置插件包安装完成标记
                 UserSettings.SetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY, true);
                                                 
-                // 先移除launcher模块
-                RemoveLauncherModule();
-                                                
-                // 刷新Unity以加载新安装的包
+                // 刷新Unity以加载更改
                 Client.Resolve();
+                                
+                // 在刷新后，AutoInstallManager会重新启动并检测到配置未完成，然后打开配置中心
             }
         }
         
@@ -639,33 +638,5 @@ namespace NovaFramework.Editor.Installer
             }
         }
         
-        // 移除launcher模块
-        private static void RemoveLauncherModule()
-        {
-            try
-            {
-                // 使用PackageManager移除launcher包
-                var request = Client.Remove("com.novaframework.unity.launcher");
-                
-                // 等待移除完成
-                while (!request.IsCompleted)
-                {
-                    System.Threading.Thread.Sleep(100);
-                }
-                
-                if (request.Error != null)
-                {
-                    Debug.LogWarning($"移除launcher模块时出现错误: {request.Error.message}");
-                }
-                else
-                {
-                    Debug.Log("成功移除launcher模块");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"移除launcher模块时出现异常: {ex.Message}");
-            }
-        }
     }
 }

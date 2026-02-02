@@ -240,6 +240,9 @@ namespace NovaFramework.Editor.Installer
             
             _showWizardButtons = false; // 隐藏向导按钮
             
+            // 设置安装完成标记
+            UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
+            
             // 提示用户配置已完成
             EditorUtility.DisplayDialog("配置完成", "框架配置已全部完成！\n现在您可以开始运行游戏了。", "确定");
         }

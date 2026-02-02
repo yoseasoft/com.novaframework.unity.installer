@@ -512,13 +512,14 @@ namespace NovaFramework.Editor.Installer
                             {
                                 OpenMainScene();
                                 
-                                // 延迟创建安装完成标记文件
-                                EditorApplication.delayCall += () =>
-                                {
-                                    UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
-                                    _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
-                                    Client.Resolve();
-                                };
+                                // 注册包注册事件监听器
+                                UnityEditor.PackageManager.Events.registeringPackages += OnPackagesRegisteredAfterResolve;
+                                
+                                Debug.Log("开始解析包...");
+                                Client.Resolve();
+                                
+                                // 不在这里打开配置中心，而是在包解析完成后
+                                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
                             };
                         };
                     };
@@ -540,6 +541,25 @@ namespace NovaFramework.Editor.Installer
                 Debug.LogWarning("主场景文件不存在: " + mainScenePath + "，请手动创建或复制");
             }
             
+        }
+        
+        // 包解析完成后调用
+        private static void OnPackagesRegisteredAfterResolve(UnityEditor.PackageManager.PackageRegistrationEventArgs args)
+        {
+            // 只处理添加或移除包的事件，避免重复触发
+            if (args.added.Count > 0 || args.removed.Count > 0)
+            {
+                Debug.Log("包解析操作已完成，包列表已更新。");
+                
+                // 取消事件监听，避免重复触发
+                UnityEditor.PackageManager.Events.registeringPackages -= OnPackagesRegisteredAfterResolve;
+                
+                // 延迟打开配置中心，确保所有资源都已加载完成
+                EditorApplication.delayCall += () =>
+                {
+                    ConfigurationWindow.StartAutoConfiguration();
+                };
+            }
         }
         
         // 新增方法：复制Configs目录下所有文件到Assets/Resources/

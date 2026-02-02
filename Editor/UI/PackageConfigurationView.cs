@@ -62,8 +62,7 @@ namespace NovaFramework.Editor.Installer
             // 添加搜索框
             EditorGUILayout.BeginHorizontal();
             GUILayout.Label("<color=#2196F3> 搜索包</color>", RichTextUtils.GetRichTextStyle(Color.white, 14), GUILayout.Width(60));
-            int searchBoxWidth = Math.Max(100, (int)(Screen.width * 0.5 - 90)); // 使用屏幕宽度的50%
-            string newSearchFilter = EditorGUILayout.TextField(_packageSearchFilter, GUILayout.Width(searchBoxWidth));
+            string newSearchFilter = EditorGUILayout.TextField(_packageSearchFilter);
             if (newSearchFilter != _packageSearchFilter)
             {
                 _packageSearchFilter = newSearchFilter;
@@ -81,7 +80,7 @@ namespace NovaFramework.Editor.Installer
         private void DrawLeftPanel()
         {
             // 左侧：所有包列表（带搜索过滤）
-            EditorGUILayout.BeginVertical(GUILayout.Width(Screen.width * 0.55f)); // 增加左侧宽度到55%
+            EditorGUILayout.BeginVertical();
             GUILayout.Label("<color=#FF9800>  所有包</color>", RichTextUtils.GetBoldRichTextStyle(Color.white, 14));
             
             // 滚动视图以容纳可能的大量包
@@ -207,7 +206,7 @@ namespace NovaFramework.Editor.Installer
             GUILayout.Space(40); // 左侧整体右移20像素，增加左侧视觉空间
 
             // 右侧：已选包列表
-            EditorGUILayout.BeginVertical(GUILayout.Width(Screen.width * 0.35f)); // 减少右侧宽度到35%，并将其靠右对齐
+            EditorGUILayout.BeginVertical();
             GUILayout.Label("<color=#4CAF50>已选择的包</color>", RichTextUtils.GetBoldRichTextStyle(Color.white, 14));
             
             DrawSelectedPackagesPanel();

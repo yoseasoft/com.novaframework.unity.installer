@@ -69,20 +69,10 @@ namespace NovaFramework.Editor.Installer
             if (packagesInstalled)
             {
                 // 插件包已安装，但配置未完成
-                _progressWindow?.AddLog("插件包已安装，等待Unity稳定后打开配置中心完成配置...");
+                _progressWindow?.AddLog("插件包已安装，打开配置中心完成配置...");
                 
-                // 延迟打开配置中心，确保Unity完全稳定
-                EditorApplication.delayCall += () =>
-                {
-                    // 重新检查状态，以防在此期间发生了变化
-                    bool isInstallationCompleteNow = UserSettings.GetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY);
-                    bool packagesStillInstalled = UserSettings.GetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY);
-                    
-                    if (!isInstallationCompleteNow && packagesStillInstalled)
-                    {
-                        ConfigurationWindow.StartAutoConfiguration();
-                    }
-                };
+                // 直接打开配置中心
+                ConfigurationWindow.StartAutoConfiguration();
                 
                 // 设置步骤为完成，因为安装流程已完成，现在只需配置
                 _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
@@ -157,13 +147,12 @@ namespace NovaFramework.Editor.Installer
         {
             if (currentIndex >= packagesList.Count)
             {
-                // 所有包已添加到manifest.json，不需要显式调用ResolveAllPackages
-                // GitManager.InstallPackage 会自动触发包管理器更新
-                _progressWindow?.AddLog("所有包配置完成...");
+                // 所有包已安装完成，现在执行完整的资源刷新
+                _progressWindow?.AddLog("所有包安装完成，正在刷新资源...");
                 
                 // 刷新资源
-                _progressWindow?.AddLog("正在刷新资源...");
-               
+                AssetDatabase.Refresh();
+                
                 // 直接执行下一步
                 CreateDirectories();
                 
@@ -222,11 +211,29 @@ namespace NovaFramework.Editor.Installer
                     
                     callbackExecuted = true;
                     
-                    // 使用 delayCall 替代之前的队列机制，因为 delayCall 在 Git 操作后应该正常工作
-                    EditorApplication.delayCall += () =>
+                    // 安装完一个包后，调用Client.Resolve()来解析包依赖
+                    _progressWindow?.AddLog($"  正在解析包: {packageName}");
+                    
+                    // 注册包解析完成事件，等待解析完成后再安装下一个包
+                    UnityEditor.PackageManager.Events.registeringPackages += OnPackageResolved;
+                    Client.Resolve();
+                    
+                    void OnPackageResolved(UnityEditor.PackageManager.PackageRegistrationEventArgs args)
                     {
-                        InstallPackagesSequentially(packagesList, currentIndex + 1);
-                    };
+                        // 只处理当前包相关的事件
+                        if (args.added.Any(p => p.name == packageName) || args.removed.Any(p => p.name == packageName))
+                        {
+                            UnityEditor.PackageManager.Events.registeringPackages -= OnPackageResolved;
+                            
+                            _progressWindow?.AddLog($"  包解析完成: {packageName}");
+                            
+                            // 解析完成后，继续安装下一个包
+                            EditorApplication.delayCall += () =>
+                            {
+                                InstallPackagesSequentially(packagesList, currentIndex + 1);
+                            };
+                        }
+                    }
                 });
                 
                 // 添加一个计时器来检测回调是否执行，如果没执行则强制继续
@@ -538,18 +545,18 @@ namespace NovaFramework.Editor.Installer
                             EditorApplication.delayCall += () =>
                             {
                                 OpenMainScene();
-                                                                
+                                                            
                                 // 在所有安装步骤完成后，设置插件包安装完成标记
                                 UserSettings.SetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY, true);
-                                                                
-                                // 注册包注册事件监听器
-                                UnityEditor.PackageManager.Events.registeringPackages += OnPackagesRegisteredAfterResolve;
-                                                                
-                                Debug.Log("开始解析包...");
-                                Client.Resolve();
-                                                                
-                                // 不在这里打开配置中心，而是在包解析完成后
-                                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
+                                                            
+                                // 关闭进度界面
+                                _progressWindow?.Close();
+                                _progressWindow = null;
+                                                            
+                                Debug.Log("安装流程完成，打开配置中心...");
+                                                            
+                                // 打开配置中心
+                                ConfigurationWindow.StartAutoConfiguration();
                             };
                         };
                     };
@@ -573,25 +580,6 @@ namespace NovaFramework.Editor.Installer
             
         }
         
-        // 包解析完成后调用
-        private static void OnPackagesRegisteredAfterResolve(UnityEditor.PackageManager.PackageRegistrationEventArgs args)
-        {
-            // 只处理添加或移除包的事件，避免重复触发
-            if (args.added.Count > 0 || args.removed.Count > 0)
-            {
-                Debug.Log("包解析操作已完成，包列表已更新。");
-                
-                // 取消事件监听，避免重复触发
-                UnityEditor.PackageManager.Events.registeringPackages -= OnPackagesRegisteredAfterResolve;
-                
-                // 关闭进度窗口
-                _progressWindow?.Close();
-                _progressWindow = null;
-                                
-                // 所有安装步骤已完成，标记已设置，无需再次设置
-          
-            }
-        }
         
         // 新增方法：复制Configs目录下所有文件到Assets/Resources/
         private static void CopyConfigsToResources()

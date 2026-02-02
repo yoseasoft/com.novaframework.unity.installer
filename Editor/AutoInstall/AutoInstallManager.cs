@@ -571,14 +571,18 @@ namespace NovaFramework.Editor.Installer
                 // 取消事件监听，避免重复触发
                 UnityEditor.PackageManager.Events.registeringPackages -= OnPackagesRegisteredAfterResolve;
                 
+                // 关闭进度窗口
+                _progressWindow?.Close();
+                _progressWindow = null;
+                                                
                 // 设置插件包安装完成标记
                 UserSettings.SetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY, true);
-                
-                // 延迟打开配置中心，确保所有资源都已加载完成
-                EditorApplication.delayCall += () =>
-                {
-                    ConfigurationWindow.StartAutoConfiguration();
-                };
+                                                
+                // 先移除launcher模块
+                RemoveLauncherModule();
+                                                
+                // 刷新Unity以加载新安装的包
+                Client.Resolve();
             }
         }
         
@@ -632,6 +636,35 @@ namespace NovaFramework.Editor.Installer
             {
                 _progressWindow?.AddLog($"复制配置文件时出错: {ex.Message}");
                 Debug.LogError($"复制配置文件时出错: {ex.Message}");
+            }
+        }
+        
+        // 移除launcher模块
+        private static void RemoveLauncherModule()
+        {
+            try
+            {
+                // 使用PackageManager移除launcher包
+                var request = Client.Remove("com.novaframework.unity.launcher");
+                
+                // 等待移除完成
+                while (!request.IsCompleted)
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
+                
+                if (request.Error != null)
+                {
+                    Debug.LogWarning($"移除launcher模块时出现错误: {request.Error.message}");
+                }
+                else
+                {
+                    Debug.Log("成功移除launcher模块");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"移除launcher模块时出现异常: {ex.Message}");
             }
         }
     }

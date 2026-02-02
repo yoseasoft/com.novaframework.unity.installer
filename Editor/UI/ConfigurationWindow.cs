@@ -245,6 +245,12 @@ namespace NovaFramework.Editor.Installer
             
             // 提示用户配置已完成
             EditorUtility.DisplayDialog("配置完成", "框架配置已全部完成！\n现在您可以开始运行游戏了。", "确定");
+            
+            // 关闭配置窗口
+            if (_window != null)
+            {
+                _window.Close();
+            }
         }
         
       

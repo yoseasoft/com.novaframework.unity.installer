@@ -538,13 +538,16 @@ namespace NovaFramework.Editor.Installer
                             EditorApplication.delayCall += () =>
                             {
                                 OpenMainScene();
-                                
+                                                                
+                                // 在所有安装步骤完成后，设置插件包安装完成标记
+                                UserSettings.SetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY, true);
+                                                                
                                 // 注册包注册事件监听器
                                 UnityEditor.PackageManager.Events.registeringPackages += OnPackagesRegisteredAfterResolve;
-                                
+                                                                
                                 Debug.Log("开始解析包...");
                                 Client.Resolve();
-                                
+                                                                
                                 // 不在这里打开配置中心，而是在包解析完成后
                                 _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
                             };
@@ -585,8 +588,7 @@ namespace NovaFramework.Editor.Installer
                 _progressWindow?.Close();
                 _progressWindow = null;
                                 
-                // 设置插件包安装完成标记
-                UserSettings.SetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY, true);
+                // 所有安装步骤已完成，标记已设置，无需再次设置
           
             }
         }

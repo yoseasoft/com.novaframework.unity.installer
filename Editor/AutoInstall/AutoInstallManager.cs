@@ -528,7 +528,6 @@ namespace NovaFramework.Editor.Installer
                                     UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
                                     _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
 
-                                    Events.registeringPackages += OnPackagesRegistered;
                                     // 移除launcher模块
                                     RemoveLauncherModule();
                                 };
@@ -538,41 +537,7 @@ namespace NovaFramework.Editor.Installer
                 };
             };
         }
-
-        private static void OnPackagesRegistered(PackageRegistrationEventArgs args)
-        {
-            // 移除事件监听器以避免重复调用
-            // Events.registeringPackages -= OnPackagesRegistered;
-            Debug.Log("OnPackagesRegistered count:"+ args.added.Count);
-
-            // args 包含了添加、移除或更新的包信息
-            // 这里可以添加过滤条件，例如判断是否是因Resolve触发
-            if (args.added.Count > 0 || args.removed.Count > 0)
-            {
-                Debug.Log("包解析操作已完成，包列表已更新。");
-                // 在这里执行你的后续代码，例如刷新UI、初始化等
-                // 使用异步方式延迟执行，避免阻塞主线程
-                // 关闭进度界面
-                // _progressWindow?.Close();
-                // _progressWindow = null;
-                // EditorApplication.delayCall += () =>
-                // {
-                //     // 打开配置中心
-                //     ConfigurationWindow.StartAutoConfiguration();
-                // };
-            }
-        }
-
-        [MenuItem("Tools/NovaFramework/重置安装状态", false, 2)]
-        public static void MenuItem_ResetInstallStatus()
-        {
-            if (EditorUtility.DisplayDialog("重置安装状态", "确定要重置安装状态吗？这将允许您重新运行完整的安装流程。", "确定", "取消"))
-            {
-                ResetInstallStatus();
-                EditorUtility.DisplayDialog("重置完成", "安装状态已重置，您可以重新运行安装流程。", "确定");
-            }
-        }
-
+       
         private static void OpenMainScene()
         {
             string mainScenePath = "Assets/Scenes/main.unity";

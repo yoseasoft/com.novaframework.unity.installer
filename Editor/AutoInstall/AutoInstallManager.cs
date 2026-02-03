@@ -528,7 +528,8 @@ namespace NovaFramework.Editor.Installer
                                     _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
 
                                     Events.registeringPackages += OnPackagesRegistered;
-                                    Client.Resolve();
+                                    // 移除launcher模块
+                                    RemoveLauncherModule();
                                 };
                             };
                         };
@@ -587,6 +588,23 @@ namespace NovaFramework.Editor.Installer
 
         }
 
+        // 移除launcher模块
+        private static void RemoveLauncherModule()
+        {
+            try
+            {
+              
+                // 使用PackageManager移除launcher包
+                Client.Remove("com.novaframework.unity.launcher");
+                Client.Resolve();
+                // 不等待完成，让Unity在后台处理
+                Debug.Log("开始移除launcher模块...");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"移除launcher模块时出现异常: {ex.Message}");
+            }
+        }
 
         // 新增方法：复制Configs目录下所有文件到Assets/Resources/
         private static void CopyConfigsToResources()
@@ -642,4 +660,6 @@ namespace NovaFramework.Editor.Installer
         }
 
     }
+    
+    
 }

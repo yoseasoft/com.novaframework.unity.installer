@@ -253,28 +253,10 @@ namespace NovaFramework.Editor.Installer
                 _window.Close();
             }
             
-            // 移除launcher模块
-            RemoveLauncherModule();
+           
         }
         
-        // 移除launcher模块
-        private void RemoveLauncherModule()
-        {
-            try
-            {
-                Debug.Log("配置已完成，正在移除launcher模块...");
-                
-                // 使用PackageManager移除launcher包
-                var request = UnityEditor.PackageManager.Client.Remove("com.novaframework.unity.launcher");
-                
-                // 不等待完成，让Unity在后台处理
-                Debug.Log("开始移除launcher模块...");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"移除launcher模块时出现异常: {ex.Message}");
-            }
-        }
+       
       
     }
 }

@@ -71,6 +71,7 @@ namespace NovaFramework.Editor.Installer
         /// </summary>
         public static void StartAutoConfiguration()
         {
+            Debug.Log("Starting auto configuration...");
             SetWizardMode(true);
             ShowWindow();
         }

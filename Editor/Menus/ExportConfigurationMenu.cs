@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using NovaFramework.Editor.Manifest;
 using UnityEditor;
 using UnityEngine;
 
@@ -38,22 +39,22 @@ namespace NovaFramework.Editor.Installer
                     environmentDirectories = DataManager.GetDefaultSystemVariables();
                 }
                 
-                List<AssemblyDefinitionInfo> assemblyConfigs = null;
+                List<AssemblyDefinitionObject> assemblyConfigs = null;
                 
                 try
                 {
-                    assemblyConfigs = UserSettings.GetObject<List<AssemblyDefinitionInfo>>(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY);
+                    assemblyConfigs = UserSettings.GetObject<List<AssemblyDefinitionObject>>(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY);
                 }
                 catch (Exception ex)
                 {
                     // Debug.LogWarning($"读取程序集配置失败，使用默认配置。错误: {ex.Message}");
                     string errorMessage = ex.Message;
-                    assemblyConfigs = new List<AssemblyDefinitionInfo>();
+                    assemblyConfigs = new List<AssemblyDefinitionObject>();
                 }
                
                 if (assemblyConfigs == null)
                 {
-                    assemblyConfigs = new List<AssemblyDefinitionInfo>();
+                    assemblyConfigs = new List<AssemblyDefinitionObject>();
                 }
                 
                 // 创建SystemEnvironmentConfig对象
@@ -74,7 +75,7 @@ namespace NovaFramework.Editor.Installer
                 foreach (var config in assemblyConfigs)
                 {
                     // 确保每个自定义程序集配置都包含Game标签
-                    var tags = config.loadableStrategies ?? new List<string>();
+                    var tags = config.tags ?? new List<string>();
                     if (!tags.Contains(AssemblyTags.Game))
                     {
                         tags.Add(AssemblyTags.Game);
@@ -164,29 +165,29 @@ namespace NovaFramework.Editor.Installer
         }
         
         // 从PackageManager获取已安装包的assembly-definition信息并添加到配置
-        private static void AddInstalledPackageAssemblyDefinitions(SystemEnvironmentConfig envConfig, List<AssemblyDefinitionInfo> userAssemblyConfigs)
+        private static void AddInstalledPackageAssemblyDefinitions(SystemEnvironmentConfig envConfig, List<AssemblyDefinitionObject> userAssemblyConfigs)
         {
             try
             {
                 // 从PackageManager获取已选择的包信息（即已安装的包）
-                var selectedPackages = PackageManager.GetSelectedPackageInfos();
+                var selectedPackages = PackageManager.GetSelectedPackageObjects();
                 
                 // 遍历已选择的包，获取其assembly-definition信息
                 foreach (var package in selectedPackages)
                 {
-                    if (package.assemblyDefinitionInfo != null)
+                    if (package.assemblyDefinitionObject != null)
                     {
                         // 检查此程序集定义是否已存在于用户配置中
-                        bool alreadyExists = userAssemblyConfigs.Exists(config => config.name == package.assemblyDefinitionInfo.name);
+                        bool alreadyExists = userAssemblyConfigs.Exists(config => config.name == package.assemblyDefinitionObject.name);
                         
                         if (!alreadyExists)
                         {
                             // 将包的assembly-definition信息添加到模块配置中
                             envConfig.modules.Add(new ModuleConfig
                             {
-                                name = package.assemblyDefinitionInfo.name,
-                                order = package.assemblyDefinitionInfo.order,
-                                tags = package.assemblyDefinitionInfo.loadableStrategies // 这是List<string>
+                                name = package.assemblyDefinitionObject.name,
+                                order = package.assemblyDefinitionObject.order,
+                                tags = package.assemblyDefinitionObject.tags // 这是List<string>
                             });
                         }
                     }

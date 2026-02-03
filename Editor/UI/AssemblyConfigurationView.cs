@@ -22,6 +22,7 @@
 
 
 using System.Collections.Generic;
+using NovaFramework.Editor.Manifest;
 using UnityEditor;
 using UnityEngine;
 
@@ -30,9 +31,10 @@ namespace NovaFramework.Editor.Installer
     internal class AssemblyConfigurationView
     {
         // 程序集配置相关
-        private List<AssemblyDefinitionInfo> _assemblyConfigs;
+        private List<AssemblyDefinitionObject> _assemblyConfigs;
         private Vector2 _assemblyScrollPos;
-        private Dictionary<string, bool> _controlFocusStates = new Dictionary<string, bool>(); // 跟踪每个控件的焦点状态
+        private double _lastSaveTime = 0;
+        private const double SAVE_DELAY = 0.3; // 300毫秒延迟
 
         public AssemblyConfigurationView()
         {
@@ -75,11 +77,11 @@ namespace NovaFramework.Editor.Installer
             // 添加新程序集按钮，使用标准按钮样式
             if (GUILayout.Button("添加", GUILayout.Width(120), GUILayout.Height(30)))
             {
-                var newConfig = new AssemblyDefinitionInfo
+                var newConfig = new AssemblyDefinitionObject
                 {
                     name = "New.Assembly",
                     order = _assemblyConfigs.Count + 1,
-                    loadableStrategies = new List<string> { "Compile" } // 默认使用Compile标签
+                    tags = new List<string> { "Compile" } // 默认使用Compile标签
                 };
                 _assemblyConfigs.Add(newConfig);
                 // 自动保存
@@ -107,14 +109,12 @@ namespace NovaFramework.Editor.Installer
             
             string newName = EditorGUILayout.TextField(config.name, GUILayout.ExpandWidth(true));
             
-            // 更新名称但不立即保存
+            // 更新名称并延迟保存
             if (newName != config.name)
             {
                 config.name = newName;
+                DelaySaveAssemblyConfiguration();
             }
-            
-            // 检查焦点状态变化
-            CheckAndHandleFocusChange(nameTextFieldId);
             
             if (GUILayout.Button("移除", GUILayout.Width(60)))
             {
@@ -134,14 +134,12 @@ namespace NovaFramework.Editor.Installer
             
             int newOrder = EditorGUILayout.IntField(config.order, GUILayout.Width(100));
             
-            // 更新顺序但不立即保存
+            // 更新顺序并延迟保存
             if (newOrder != config.order)
             {
                 config.order = newOrder;
+                DelaySaveAssemblyConfiguration();
             }
-            
-            // 检查焦点状态变化
-            CheckAndHandleFocusChange(orderFieldId);
             
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
@@ -153,13 +151,12 @@ namespace NovaFramework.Editor.Installer
             string tagsFieldId = $"{config.name}_tagsField";
             GUI.SetNextControlName(tagsFieldId);
             
-            var newTags = EditAssemblyTagsField(config.loadableStrategies, () => {
+            var newTags = EditAssemblyTagsField(config.tags, () => {
                 // 标签选择时立即保存（因为标签选择器是弹出菜单，不会触发失去焦点事件）
                 SaveAssemblyConfiguration();
             });
             
-            // 检查焦点状态变化
-            CheckAndHandleFocusChange(tagsFieldId);
+
             
             EditorGUILayout.EndHorizontal();
             
@@ -174,16 +171,16 @@ namespace NovaFramework.Editor.Installer
                 // 确保每个配置项都有Game标签
                 foreach (var config in _assemblyConfigs)
                 {
-                    if (config.loadableStrategies != null && !config.loadableStrategies.Contains(AssemblyTags.Game))
+                    if (config.tags != null && !config.tags.Contains(AssemblyTags.Game))
                     {
-                        config.loadableStrategies.Add(AssemblyTags.Game);
+                        config.tags.Add(AssemblyTags.Game);
                     }
                 }
                 
                 UserSettings.SetObject(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY, _assemblyConfigs);
                 
-                // 总是导出配置，但不选中文件
-                ExportConfigurationMenu.ExportConfiguration(false); // 总是不选中文件
+                // 不自动导出配置，仅保存到UserSettings
+                // 导出配置由菜单手动触发
             }
             else
             {
@@ -199,10 +196,10 @@ namespace NovaFramework.Editor.Installer
             try
             {
                 // 从CoreEngine.Editor.UserSettings加载配置
-                _assemblyConfigs = UserSettings.GetObject<List<AssemblyDefinitionInfo>>(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY);
+                _assemblyConfigs = UserSettings.GetObject<List<AssemblyDefinitionObject>>(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY);
                 if (_assemblyConfigs == null)
                 {
-                    _assemblyConfigs = new List<AssemblyDefinitionInfo>();
+                    _assemblyConfigs = new List<AssemblyDefinitionObject>();
                 }
             }
             catch (System.Runtime.Serialization.SerializationException)
@@ -214,11 +211,11 @@ namespace NovaFramework.Editor.Installer
                     var oldConfigs = UserSettings.GetObject<List<object>>(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY);
                     if (oldConfigs != null)
                     {
-                        _assemblyConfigs = new List<AssemblyDefinitionInfo>();
+                        _assemblyConfigs = new List<AssemblyDefinitionObject>();
                         foreach (var oldConfig in oldConfigs)
                         {
                             // 尝试通过反射或其他方式转换旧配置到新配置
-                            var newConfig = new AssemblyDefinitionInfo();
+                            var newConfig = new AssemblyDefinitionObject();
                             
                             // 获取旧对象的类型
                             var oldType = oldConfig.GetType();
@@ -235,11 +232,11 @@ namespace NovaFramework.Editor.Installer
                             if (tagNamesProperty != null)
                             {
                                 var tagNamesValue = tagNamesProperty.GetValue(oldConfig) as List<string>;
-                                newConfig.loadableStrategies = tagNamesValue ?? new List<string>();
+                                newConfig.tags = tagNamesValue ?? new List<string>();
                             }
                             else
                             {
-                                newConfig.loadableStrategies = new List<string>();
+                                newConfig.tags = new List<string>();
                                 
                             }
                             
@@ -248,20 +245,20 @@ namespace NovaFramework.Editor.Installer
                     }
                     else
                     {
-                        _assemblyConfigs = new List<AssemblyDefinitionInfo>();
+                        _assemblyConfigs = new List<AssemblyDefinitionObject>();
                     }
                 }
                 catch
                 {
                     // 如果转换失败，使用空列表
-                    _assemblyConfigs = new List<AssemblyDefinitionInfo>();
+                    _assemblyConfigs = new List<AssemblyDefinitionObject>();
                 }
             }
             catch (System.Exception e)
             {
                 // 对于其他异常，使用空列表
                 Debug.LogWarning($"读取程序集配置失败，使用默认配置: {e.Message}");
-                _assemblyConfigs = new List<AssemblyDefinitionInfo>();
+                _assemblyConfigs = new List<AssemblyDefinitionObject>();
             }
             
         }
@@ -324,29 +321,6 @@ namespace NovaFramework.Editor.Installer
             public System.Action onTagsChanged;
         }
         
-        // 检查并处理控件焦点状态变化
-        private void CheckAndHandleFocusChange(string controlId)
-        {
-            // 初始化焦点状态字典
-            if (!_controlFocusStates.ContainsKey(controlId))
-            {
-                _controlFocusStates[controlId] = false;
-            }
-            
-            // 检查焦点状态变化
-            bool hasFocus = GUI.GetNameOfFocusedControl() == controlId;
-            bool previousFocusState = _controlFocusStates[controlId];
-            
-            // 如果之前有焦点，现在没有焦点，则说明失去了焦点
-            if (previousFocusState && !hasFocus && Event.current.type == EventType.Repaint)
-            {
-                SaveAssemblyConfiguration();
-            }
-            
-            // 更新焦点状态
-            _controlFocusStates[controlId] = hasFocus;
-        }
-        
         // 处理标签切换的回调函数
         private static void OnTagToggle(object userData)
         {
@@ -363,5 +337,22 @@ namespace NovaFramework.Editor.Installer
             }
             
         }
+        
+        // 延迟保存配置，避免频繁保存
+        private void DelaySaveAssemblyConfiguration()
+        {
+            _lastSaveTime = EditorApplication.timeSinceStartup + SAVE_DELAY;
+            EditorApplication.update += PerformDelayedSave;
+        }
+        
+        private void PerformDelayedSave()
+        {
+            if (EditorApplication.timeSinceStartup >= _lastSaveTime)
+            {
+                EditorApplication.update -= PerformDelayedSave;
+                SaveAssemblyConfiguration();
+            }
+        }
+        
     }
 }

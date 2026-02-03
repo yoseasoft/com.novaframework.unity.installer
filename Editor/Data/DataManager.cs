@@ -106,7 +106,7 @@ namespace NovaFramework.Editor.Installer
             foreach (var pathInfo in systemPathInfos)
             {
                 // 如果是必需的，使用默认值，否则使用空字符串
-                string value = pathInfo.isRequired ? pathInfo.defaultValue : "";
+                string value = pathInfo.required ? pathInfo.defaultValue : "";
                 variables[pathInfo.name] = value;
             }
             

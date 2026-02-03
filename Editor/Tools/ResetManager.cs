@@ -23,6 +23,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using NovaFramework.Editor.Manifest;
 using UnityEditor;
 using UnityEngine;
 
@@ -222,7 +223,7 @@ namespace NovaFramework.Editor.Installer
             // 清除UserSettings中的配置
             UserSettings.SetString(Constants.NovaFramework_Installer_DIRECTORY_CONFIG_KEY, null);
             // 对于SetObject，传递空列表而不是null以避免序列化错误
-            UserSettings.SetObject<List<AssemblyDefinitionInfo>>(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY, new List<AssemblyDefinitionInfo>());
+            UserSettings.SetObject<List<AssemblyDefinitionObject>>(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY, new List<AssemblyDefinitionObject>());
             Debug.Log("已清除UserSettings中的配置");
         }
         

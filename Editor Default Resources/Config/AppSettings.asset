@@ -12,16 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 17288496d6274034da927daa1bab01a6, type: 3}
   m_Name: AppSettings
   m_EditorClassIdentifier: 
-  editorMode: 1
-  debugMode: 1
-  debugLevel: 0
-  cryptMode: 0
-  offlineMode: 0
-  dylinkMode: 0
-  applicationName: unknown
-  applicationCode: 0
-  frameRate: 20
-  animationRate: 60
-  designResolutionWidth: 1920
-  designResolutionHeight: 1080
-  customizeEnvironmentVariables: []
+  EditorMode: 1
+  DebugMode: 1
+  DebugLevel: 0
+  CryptMode: 0
+  OfflineMode: 0
+  DylinkMode: 0
+  HotfixMode: 0
+  ApplicationName: unknown
+  ApplicationCode: 0
+  FrameRate: 20
+  AnimationRate: 60
+  DesignResolutionWidth: 1920
+  DesignResolutionHeight: 1080
+  CustomizeEnvironmentVariables: []

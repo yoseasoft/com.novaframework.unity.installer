@@ -24,6 +24,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using NovaFramework.Editor.Manifest;
 using UnityEditor;
 using UnityEngine;
 
@@ -33,8 +34,11 @@ namespace NovaFramework.Editor.Installer
     {
         // 环境目录配置相关
         private Dictionary<string, string> _systemVariables;
-        private List<SystemPathInfo> _systemPathInfos; // 从PackageManager获取的系统路径信息
+        private List<LocalPathObject> _systemPathInfos; // 从PackageManager获取的系统路径信息
         private Vector2 _dirScrollPos;
+        private double _lastSaveTime = 0;
+        private const double SAVE_DELAY = 0.3; // 300毫秒延迟
+
 
         public DirectoryConfigurationView()
         {
@@ -74,7 +78,7 @@ namespace NovaFramework.Editor.Installer
                 // 显示当前路径，但不允许直接编辑
                 string newValue = EditorGUILayout.TextField(currentValue, GUILayout.ExpandWidth(true));
                 
-                // 更新显示值到字典（不立即保存）
+                // 更新显示值到字典并标记需要保存
                 if (newValue != currentValue)
                 {
                     if (_systemVariables.ContainsKey(pathInfo.name))
@@ -85,16 +89,9 @@ namespace NovaFramework.Editor.Installer
                     {
                         _systemVariables.Add(pathInfo.name, newValue);
                     }
-                }
-                
-                // 检查文本框是否失去焦点，如果是则保存
-                if (Event.current.type == EventType.Repaint && GUI.GetNameOfFocusedControl() != textFieldId)
-                {
-                    // 验证当前显示的值是否与保存的值一致
-                    if (_systemVariables.ContainsKey(pathInfo.name) && _systemVariables[pathInfo.name] != currentValue)
-                    {
-                        SaveDirectoryConfiguration();
-                    }
+                    
+                    // 延迟保存更改
+                    DelaySaveDirectoryConfiguration();
                 }
                 
                 pathIndex++; // 递增索引
@@ -133,6 +130,27 @@ namespace NovaFramework.Editor.Installer
                         
                         // 自动保存更改
                         SaveDirectoryConfiguration();
+                        
+                        // 强制重绘界面以更新显示
+                        GUI.changed = true;
+                        
+                        // 标记GUI已更改以确保更新
+                        GUI.changed = true;
+                        
+                        // 立即强制重绘当前窗口
+                        if (EditorWindow.focusedWindow != null)
+                        {
+                            EditorWindow.focusedWindow.Repaint();
+                        }
+                        
+                        // 使用 delayCall 确保在下一帧再次重绘
+                        EditorApplication.delayCall += () =>
+                        {
+                            if (EditorWindow.focusedWindow != null)
+                            {
+                                EditorWindow.focusedWindow.Repaint();
+                            }
+                        };
                     }
                 }
                 
@@ -199,7 +217,7 @@ namespace NovaFramework.Editor.Installer
                 if (!_systemVariables.ContainsKey(pathInfo.name))
                 {
                     // 只有required=true的路径才设值，否则就置空
-                    _systemVariables[pathInfo.name] = pathInfo.isRequired ? pathInfo.defaultValue : "";
+                    _systemVariables[pathInfo.name] = pathInfo.required ? pathInfo.defaultValue : "";
                 }
             }
         }
@@ -211,9 +229,26 @@ namespace NovaFramework.Editor.Installer
             foreach (var pathInfo in _systemPathInfos)
             {
                 // 只有required=true的路径才设值，否则就置空
-                variables[pathInfo.name] = pathInfo.isRequired ? pathInfo.defaultValue : "";
+                variables[pathInfo.name] = pathInfo.required ? pathInfo.defaultValue : "";
             }
             return variables;
         }
+        
+        // 延迟保存配置，避免频繁保存
+        private void DelaySaveDirectoryConfiguration()
+        {
+            _lastSaveTime = EditorApplication.timeSinceStartup + SAVE_DELAY;
+            EditorApplication.update += PerformDelayedSave;
+        }
+        
+        private void PerformDelayedSave()
+        {
+            if (EditorApplication.timeSinceStartup >= _lastSaveTime)
+            {
+                EditorApplication.update -= PerformDelayedSave;
+                SaveDirectoryConfiguration();
+            }
+        }
+        
     }
 }

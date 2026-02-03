@@ -593,16 +593,60 @@ namespace NovaFramework.Editor.Installer
         {
             try
             {
-              
-                // 使用PackageManager移除launcher包
-                Client.Remove("com.novaframework.unity.launcher");
-                Client.Resolve();
-                // 不等待完成，让Unity在后台处理
-                Debug.Log("开始移除launcher模块...");
+                // 检查是否存在launcher包
+                var request = Client.List();
+                
+                // 等待请求完成
+                int timeout = 0;
+                while (!request.IsCompleted && timeout < 50) // 最多等待5秒
+                {
+                    System.Threading.Thread.Sleep(100);
+                    timeout++;
+                }
+                
+                bool launcherExists = false;
+                
+                // 检查是否存在launcher包
+                if (request.Result != null)
+                {
+                    foreach (var package in request.Result)
+                    {
+                        if (package.name == "com.novaframework.unity.launcher")
+                        {
+                            launcherExists = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (launcherExists)
+                {
+                    // 如果存在launcher包，则移除它
+                    Client.Remove("com.novaframework.unity.launcher");
+                    Debug.Log("开始移除launcher模块...");
+                }
+                else
+                {
+                    // 如果不存在launcher包，直接调用Client.Resolve()
+                    // Debug.Log("未找到launcher模块，直接调用Client.Resolve()");
+                    Client.Resolve();
+                }
+                
+
             }
             catch (Exception ex)
             {
-                Debug.LogError($"移除launcher模块时出现异常: {ex.Message}");
+                Debug.LogError($"检查或移除launcher模块时出现异常: {ex.Message}");
+                
+                // 如果出现异常，仍然调用Client.Resolve()确保包状态更新
+                try
+                {
+                    Client.Resolve();
+                }
+                catch (Exception resolveEx)
+                {
+                    Debug.LogError($"Client.Resolve()时出现异常: {resolveEx.Message}");
+                }
             }
         }
 

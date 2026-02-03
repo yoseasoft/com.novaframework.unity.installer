@@ -24,6 +24,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using NovaFramework.Editor.Manifest;
 using UnityEditor;
 using UnityEngine;
 
@@ -33,7 +34,7 @@ namespace NovaFramework.Editor.Installer
     {
         // 环境目录配置相关
         private Dictionary<string, string> _systemVariables;
-        private List<SystemPathInfo> _systemPathInfos; // 从PackageManager获取的系统路径信息
+        private List<LocalPathObject> _systemPathInfos; // 从PackageManager获取的系统路径信息
         private Vector2 _dirScrollPos;
         private double _lastSaveTime = 0;
         private const double SAVE_DELAY = 0.3; // 300毫秒延迟
@@ -216,7 +217,7 @@ namespace NovaFramework.Editor.Installer
                 if (!_systemVariables.ContainsKey(pathInfo.name))
                 {
                     // 只有required=true的路径才设值，否则就置空
-                    _systemVariables[pathInfo.name] = pathInfo.isRequired ? pathInfo.defaultValue : "";
+                    _systemVariables[pathInfo.name] = pathInfo.required ? pathInfo.defaultValue : "";
                 }
             }
         }
@@ -228,7 +229,7 @@ namespace NovaFramework.Editor.Installer
             foreach (var pathInfo in _systemPathInfos)
             {
                 // 只有required=true的路径才设值，否则就置空
-                variables[pathInfo.name] = pathInfo.isRequired ? pathInfo.defaultValue : "";
+                variables[pathInfo.name] = pathInfo.required ? pathInfo.defaultValue : "";
             }
             return variables;
         }

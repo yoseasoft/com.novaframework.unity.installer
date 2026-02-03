@@ -22,6 +22,7 @@
 
 using System;
 using System.Collections.Generic;
+using NovaFramework.Editor.Manifest;
 using UnityEditor;
 using UnityEngine;
 
@@ -91,15 +92,16 @@ namespace NovaFramework.Editor.Installer
             
             foreach (var package in filteredPackages)
             {
+                bool isPackageSelected = PackageManager.IsSelectedPackage(package.name);
                 EditorGUILayout.BeginHorizontal("box");
-                
-                bool newSelection = package.isSelected;
+
+                bool newSelection = isPackageSelected;
                 
                 // 如果是必需包，显示灰色不可点击的勾选框
-                if (package.isRequired)
+                if (package.required)
                 {
                     GUI.enabled = false; // 禁用交互
-                    EditorGUILayout.Toggle(package.isSelected, GUILayout.Width(25));
+                    EditorGUILayout.Toggle(isPackageSelected, GUILayout.Width(25));
                     GUI.enabled = true; // 恢复交互
                     
                     // 显示包信息，使用工具提示
@@ -110,14 +112,14 @@ namespace NovaFramework.Editor.Installer
                 else
                 {
                     // 显示可点击的勾选框
-                    newSelection = EditorGUILayout.Toggle(package.isSelected, GUILayout.Width(25));
+                    newSelection = EditorGUILayout.Toggle(isPackageSelected, GUILayout.Width(25));
                     
-                    if (newSelection != package.isSelected)
+                    if (newSelection != isPackageSelected)
                     {
                         //勾选前检查
                         if (TogglePackageCheck(package, newSelection))
                         {
-                            package.isSelected = newSelection;
+                            PackageManager.SetSelectedStatus(package.name, newSelection);
                         }
                     }
                     
@@ -186,9 +188,9 @@ namespace NovaFramework.Editor.Installer
                     }
                     
                     // 显示Git URL（如果存在）
-                    if (!string.IsNullOrEmpty(package.gitUrl))
+                    if (!string.IsNullOrEmpty(package.gitRepositoryUrl))
                     {
-                        GUILayout.Label("<color=#FFFFFF>Git地址:</color> <color=#03A9F4>" + package.gitUrl + "</color>", RichTextUtils.GetRichTextStyle(Color.white, 10));
+                        GUILayout.Label("<color=#FFFFFF>Git地址:</color> <color=#03A9F4>" + package.gitRepositoryUrl + "</color>", RichTextUtils.GetRichTextStyle(Color.white, 10));
                     }
                     EditorGUI.indentLevel--;
                     EditorGUILayout.EndVertical(); // 结束垂直区域
@@ -232,7 +234,7 @@ namespace NovaFramework.Editor.Installer
                             "确定要更新所有选中的包吗？此操作将会从Git仓库拉取最新版本。", 
                             "确定", "取消"))
                     {
-                        GitManager.UpdatePackages(PackageManager.GetSelectedPackageInfos());
+                        GitManager.UpdatePackages(PackageManager.GetSelectedPackageObjects());
                         DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
                     }
                 }
@@ -271,12 +273,12 @@ namespace NovaFramework.Editor.Installer
         /// <param name="package">要切换的包</param>
         /// <param name="isSelected">新的选择状态</param>
         /// <returns>如果操作成功则返回true，否则返回false</returns>
-        private bool TogglePackageCheck(PackageInfo package, bool isSelected)
+        private bool TogglePackageCheck(PackageObject package, bool isSelected)
         {
-            if (package == null || package.isRequired) return false;
+            if (package == null || package.required) return false;
 
             List<string> recursivelyDependencies = PackageManager.GetPackageRecursivelyDependencies(package.name);
-            List<PackageInfo> selectedPackages = PackageManager.GetSelectedPackageInfos();
+            List<PackageObject> selectedPackages = PackageManager.GetSelectedPackageObjects();
             
             if (isSelected)
             {
@@ -288,9 +290,9 @@ namespace NovaFramework.Editor.Installer
                         var existPackage = selectedPackages.Find(p => p.name == repulsionPkgName);
                         if (existPackage != null)
                         {
-                            PackageInfo repulsionPackageInfo = PackageManager.GetPackageInfoByName(repulsionPkgName);
+                            PackageObject repulsionPackageObject = PackageManager.GetPackageObjectByName(repulsionPkgName);
                             EditorUtility.DisplayDialog("互斥冲突",
-                                $"【{package.title}】与【{repulsionPackageInfo.title}】 互斥",
+                                $"【{package.title}】与【{repulsionPackageObject.title}】 互斥",
                                 "确定");
                             return false;
                         }
@@ -300,7 +302,7 @@ namespace NovaFramework.Editor.Installer
                 //递归的依赖是否跟已安装的包互斥
                 foreach (string depName in recursivelyDependencies)
                 {
-                    PackageInfo _pkgInfo = PackageManager.GetPackageInfoByName(depName);
+                    PackageObject _pkgInfo = PackageManager.GetPackageObjectByName(depName);
                     if (_pkgInfo.repulsions != null && _pkgInfo.repulsions.Count > 0)
                     {
                         foreach (var repulsionPkgName in _pkgInfo.repulsions)
@@ -308,10 +310,10 @@ namespace NovaFramework.Editor.Installer
                             var existPackage = selectedPackages.Find(p => p.name == repulsionPkgName);
                             if (existPackage != null)
                             {
-                                PackageInfo depPackageInfo = PackageManager.GetPackageInfoByName(depName);
+                                PackageObject depPackageObject = PackageManager.GetPackageObjectByName(depName);
                                 
                                 EditorUtility.DisplayDialog("互斥冲突",
-                                    $"【{package.title}】中引用的【{depPackageInfo.title}】与已勾选的【{existPackage.title}】 互斥",
+                                    $"【{package.title}】中引用的【{depPackageObject.title}】与已勾选的【{existPackage.title}】 互斥",
                                     "确定");
                                 return false;
                             }
@@ -322,11 +324,7 @@ namespace NovaFramework.Editor.Installer
                 // 选中包时，自动选中其引用
                 foreach (string depName in recursivelyDependencies)
                 {
-                    var depPackage = PackageManager.PackageInfoList.Find(p => p.name == depName);
-                    if (depPackage != null && !depPackage.isSelected)
-                    {
-                        depPackage.isSelected = true;
-                    }
+                    PackageManager.SetSelectedStatus(depName, true);
                 }
 
                 // 使用EditorApplication.delayCall延迟执行保存操作，确保界面更新
@@ -342,9 +340,9 @@ namespace NovaFramework.Editor.Installer
             else
             {
                 // 取消选中包时，检查是否有其他包依赖它
-                foreach (var otherPackage in PackageManager.PackageInfoList)
+                foreach (var otherPackage in PackageManager.PackageObjectList)
                 {
-                    if (otherPackage.isSelected && otherPackage.dependencies.Contains(package.name))
+                    if (PackageManager.IsSelectedPackage(otherPackage.name) && otherPackage.dependencies.Contains(package.name))
                     {
                         // 如果有其他选中的包依赖此包，则不允许取消选中
                         EditorUtility.DisplayDialog("依赖冲突",
@@ -355,7 +353,7 @@ namespace NovaFramework.Editor.Installer
                 }
         
                 // 如果没有包依赖此包，可以取消选中
-                package.isSelected = false;
+                PackageManager.SetSelectedStatus(package.name, false);
                 
                 // 使用EditorApplication.delayCall延迟执行保存操作，确保界面更新
                 UnityEditor.EditorApplication.delayCall += () =>
@@ -373,7 +371,7 @@ namespace NovaFramework.Editor.Installer
         private void DrawSelectedPackagesPanel()
         {
             //获取已选中的包
-            var selectedPackages = PackageManager.GetSelectedPackageInfos();
+            var selectedPackages = PackageManager.GetSelectedPackageObjects();
             
             if (selectedPackages.Count == 0)
             {
@@ -390,7 +388,7 @@ namespace NovaFramework.Editor.Installer
                 
                 // 显示包名称，确保完整显示并支持工具提示
                 string packageText = $"<color=#FFFFFF>{package.title}</color>";
-                if (package.isRequired)
+                if (package.required)
                 {
                     packageText += " <color=#FF9800>(必需)</color>"; // 标注必需包
                 }
@@ -398,7 +396,7 @@ namespace NovaFramework.Editor.Installer
                 GUILayout.Label(label, RichTextUtils.GetRichTextStyle(Color.white, 12), GUILayout.ExpandWidth(true));
                 
                 // 只为非必需包显示移除按钮
-                if (!package.isRequired)
+                if (!package.required)
                 {
                     GUIStyle removeButtonStyle = RichTextUtils.GetButtonTextOnlyStyle(new Color(0.9f, 0.3f, 0.3f, 1f)); // 红色背景的移除按钮
                     if (GUILayout.Button("移除", removeButtonStyle, GUILayout.Width(50), GUILayout.Height(25)))

@@ -24,6 +24,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using NovaFramework.Editor.Manifest;
 using UnityEngine;
 using UnityEditor;
 
@@ -39,14 +40,14 @@ namespace NovaFramework.Editor.Installer
 
         private const string SAVE_ROOT_PARH = "file:./../" + Constants.SAVE_PACKAGE_RELATIVE_PATH;
         
-        private static void InstallPackageFromGit(PackageInfo package, string destinationPath)
+        private static void InstallPackageFromGit(PackageObject package, string destinationPath)
         {
             if (!Directory.Exists(destinationPath))
             {
                 Directory.CreateDirectory(destinationPath);
             }
             
-            bool cloneSuccess = GitUtils.CloneRepository(package.gitUrl, destinationPath);
+            bool cloneSuccess = GitUtils.CloneRepository(package.gitRepositoryUrl, destinationPath);
             
             if (cloneSuccess)
             {
@@ -59,7 +60,7 @@ namespace NovaFramework.Editor.Installer
             }
             else
             {
-                UnityEngine.Debug.LogError($"[GitManager] 从Git仓库安装失败: {package.gitUrl}");
+                UnityEngine.Debug.LogError($"[GitManager] 从Git仓库安装失败: {package.gitRepositoryUrl}");
             }
         }
         
@@ -75,20 +76,20 @@ namespace NovaFramework.Editor.Installer
         /// </summary>
         /// <param name="packageName">包名称</param>
         /// <param name="onComplete">安装完成回调</param>
-        public static void InstallPackage(PackageInfo packageInfo, System.Action onComplete = null)
+        public static void InstallPackage(PackageObject packageObject, System.Action onComplete = null)
         {
             try
             {
-                if (packageInfo == null)
+                if (packageObject == null)
                 {
-                    UnityEngine.Debug.LogError("[GitManager] InstallPackage: packageInfo 为 null");
+                    UnityEngine.Debug.LogError("[GitManager] InstallPackage: packageObject 为 null");
                     onComplete?.Invoke(); // 即使为空也要调用回调，否则流程会中断
                     return;
                 }
                 
-                string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageInfo.name);
+                string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageObject.name);
                 
-                InstallPackageFromGit(packageInfo, packagePath);
+                InstallPackageFromGit(packageObject, packagePath);
             }
             catch (Exception ex)
             {
@@ -125,11 +126,11 @@ namespace NovaFramework.Editor.Installer
                 if (!oldPackages.Contains(newPkgName))
                 {
                     // 在新列表中存在但不在旧列表中的包需要被安装
-                    PackageInfo packageInfo = PackageManager.GetPackageInfoByName(newPkgName);
-                    if (packageInfo != null && !string.IsNullOrEmpty(packageInfo.gitUrl))
+                    PackageObject packageObject = PackageManager.GetPackageObjectByName(newPkgName);
+                    if (packageObject != null && !string.IsNullOrEmpty(packageObject.gitRepositoryUrl))
                     {
                         string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, newPkgName);
-                        InstallPackageFromGit(packageInfo, packagePath);
+                        InstallPackageFromGit(packageObject, packagePath);
                     }
                 }
             }
@@ -241,7 +242,7 @@ namespace NovaFramework.Editor.Installer
             }
         }
         
-        public static void UpdatePackages(List<PackageInfo> selectPackages)
+        public static void UpdatePackages(List<PackageObject> selectPackages)
         {
             foreach (var package in selectPackages)
             {

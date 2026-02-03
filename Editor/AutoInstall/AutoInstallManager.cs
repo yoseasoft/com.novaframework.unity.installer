@@ -22,6 +22,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using NovaFramework.Editor.Manifest;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -87,7 +88,7 @@ namespace NovaFramework.Editor.Installer
                 // 使用PackageManager加载所有包信息
                 PackageManager.LoadData();
 
-                var allPackages = PackageManager.PackageInfoList;
+                var allPackages = PackageManager.PackageObjectList;
 
                 if (allPackages == null || allPackages.Count == 0)
                 {
@@ -97,7 +98,7 @@ namespace NovaFramework.Editor.Installer
                 _progressWindow?.AddLog($"成功加载 {allPackages.Count} 个包信息");
 
                 // 获取已选择的包（包括必需包及其依赖）
-                var selectedPackages = PackageManager.GetSelectedPackageInfos();
+                var selectedPackages = PackageManager.GetSelectedPackageObjects();
 
                 _progressWindow?.AddLog($"已选择 {selectedPackages.Count} 个包待安装");
 
@@ -172,7 +173,7 @@ namespace NovaFramework.Editor.Installer
                     return;
                 }
 
-                PackageInfo packageInfo = PackageManager.GetPackageInfoByName(packageName);
+                PackageObject packageInfo = PackageManager.GetPackageObjectByName(packageName);
                 if (packageInfo == null)
                 {
                     _progressWindow?.AddLog($"  警告: 未找到包信息 {packageName}，跳过");

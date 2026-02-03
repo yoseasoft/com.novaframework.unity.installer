@@ -63,23 +63,6 @@ namespace NovaFramework.Editor.Installer
                 return;
             }
 
-            // 检查插件包是否已经安装，但配置尚未完成
-            bool packagesInstalled = UserSettings.GetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY);
-
-            if (packagesInstalled)
-            {
-                _progressWindow?.AddLog("检测到插件包已安装，继续执行后续安装步骤...");
-
-                // 不要直接跳转到配置中心，而是继续执行完整的安装流程
-                // 这样可以确保所有步骤（创建目录、导出配置、打开场景等）都得到执行
-                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.CreateDirectories);
-
-                // 执行创建目录步骤
-                CreateDirectories();
-
-                return;
-            }
-
             _progressWindow?.AddLog("环境检查通过，开始安装流程...");
 
             // 开始自动安装流程...

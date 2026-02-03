@@ -431,7 +431,6 @@ namespace NovaFramework.Editor.Installer
                 if (GUILayout.Button("关闭", GUILayout.Height(30)))
                 {
                     Close();
-                    ConfigurationWindow.StartAutoConfiguration();
                 }
             }
             else
@@ -448,6 +447,7 @@ namespace NovaFramework.Editor.Installer
         
         private void OnDestroy()
         {
+
             _instance = null;
             
             // 检查安装是否完成，如果完成则打开配置中心
@@ -456,7 +456,8 @@ namespace NovaFramework.Editor.Installer
                 // 延迟调用以确保当前窗口完全关闭
                 EditorApplication.delayCall += () =>
                 {
-                    // ConfigurationWindow.StartAutoConfiguration();
+                    Debug.Log("安装完成，即将调用配置中心");
+                    ConfigurationWindow.StartAutoConfiguration();
                 };
             }
         }

@@ -60,14 +60,6 @@ namespace NovaFramework.Editor.Installer
             // 检查是否已经完成全部安装（包括配置）
             if (IsAlreadyInstalled())
             {
-                _progressWindow?.AddLog("检测到框架已经安装过了，无需重复安装。");
-                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
-
-                EditorUtility.DisplayDialog(
-                    "自动安装",
-                    "检测到框架已经安装过了，无需重复安装。",
-                    "确定"
-                );
                 return;
             }
 
@@ -177,28 +169,6 @@ namespace NovaFramework.Editor.Installer
             DoInstallSinglePackage(packagesList, currentIndex, packageName);
         }
 
-        // 当项目在Client.Resolve()后发生变化时调用
-        private static void OnProjectChangedAfterResolve()
-        {
-            // 确保只执行一次
-            EditorApplication.projectChanged -= OnProjectChangedAfterResolve;
-
-            Debug.Log("[AutoInstall] 项目已变更，继续执行后续安装步骤...");
-
-            // 继续执行下一步
-            EditorApplication.delayCall += () =>
-            {
-                Debug.Log("[AutoInstall] delayCall executed, refreshing assets...");
-                // 刷新资源
-                AssetDatabase.Refresh();
-
-                _progressWindow?.AddLog("包解析完成，继续执行后续安装步骤...");
-
-                Debug.Log("[AutoInstall] Calling CreateDirectories...");
-                // 直接执行下一步
-                CreateDirectories();
-            };
-        }
 
         // 执行单个包的安装
         private static void DoInstallSinglePackage(List<string> packagesList, int currentIndex, string packageName)

@@ -22,6 +22,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using NovaFramework.Editor.Manifest;
 using UnityEditor;
 using UnityEngine;
@@ -557,8 +558,7 @@ namespace NovaFramework.Editor.Installer
         // 移除launcher模块
         private static void RemoveLauncherModule()
         {
-            try
-            {
+            
                 // 检查是否存在launcher包
                 var request = Client.List();
                 
@@ -588,84 +588,83 @@ namespace NovaFramework.Editor.Installer
                 if (launcherExists)
                 {
                     // 如果存在launcher包，则移除它
+                    Events.registeredPackages += OnPackagesRegistered;
                     Client.Remove("com.novaframework.unity.launcher");
                     Debug.Log("开始移除launcher模块...");
                 }
                 else
                 {
                     // 如果不存在launcher包，直接调用Client.Resolve()
-                    // Debug.Log("未找到launcher模块，直接调用Client.Resolve()");
+                    Events.registeredPackages += OnPackagesRegistered;
                     Client.Resolve();
                 }
                 
-
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"检查或移除launcher模块时出现异常: {ex.Message}");
-                
-                // 如果出现异常，仍然调用Client.Resolve()确保包状态更新
-                try
-                {
-                    Client.Resolve();
-                }
-                catch (Exception resolveEx)
-                {
-                    Debug.LogError($"Client.Resolve()时出现异常: {resolveEx.Message}");
-                }
-            }
         }
+        
+        
+        private static void OnPackagesRegistered(PackageRegistrationEventArgs args)
+        {
+            // 移除事件监听器以避免重复调用
+            Events.registeringPackages -= OnPackagesRegistered;
+            Debug.Log("OnPackagesRegistered... 包安装完成，创建配置");
+            CopyConfigsToResources();
+
+        }
+        
 
         // 新增方法：复制Configs目录下所有文件到Assets/Resources/
-        private static void CopyConfigsToResources()
+        internal static void CopyConfigsToResources()
         {
             try
             {
-                string configsPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH, "Editor Default Resources/Config");
                 string resourcesPath = Path.Combine(Application.dataPath, "Resources");
-
-                if (!Directory.Exists(configsPath))
-                {
-                    _progressWindow?.AddLog($"Configs目录不存在，跳过资源复制");
-                    Debug.LogWarning($"Configs目录不存在: {configsPath}");
-                    return;
-                }
 
                 if (!Directory.Exists(resourcesPath))
                 {
                     Directory.CreateDirectory(resourcesPath);
                 }
 
-                // 只复制特定的配置文件
-                string[] requiredFiles = { "AppConfigures.asset", "AppSettings.asset" };
-                int copiedCount = 0;
-
-                foreach (string fileName in requiredFiles)
+                // 使用反射调用SettingsExport类的方法来创建配置文件
+                Type settingsExportType = Type.GetType("NovaFramework.Editor.SettingsExport, NovaEditor.Boot");
+                if (settingsExportType != null)
                 {
-                    string sourceFilePath = Path.Combine(configsPath, fileName);
-                    string destFilePath = Path.Combine(resourcesPath, fileName);
-
-                    if (File.Exists(sourceFilePath))
+                    // 调用CreateAndSaveSettingAsset()方法
+                    MethodInfo createSettingMethod = settingsExportType.GetMethod("CreateAndSaveSettingAsset", BindingFlags.Public | BindingFlags.Static);
+                    if (createSettingMethod != null)
                     {
-                        // 复制文件
-                        File.Copy(sourceFilePath, destFilePath, true); // true表示覆盖已存在的文件
-                        copiedCount++;
+                        createSettingMethod.Invoke(null, null);
+                        _progressWindow?.AddLog("已通过反射创建 AppSettings.asset");
                     }
                     else
                     {
-                        Debug.LogWarning($"配置文件不存在: {sourceFilePath}");
+                        _progressWindow?.AddLog("未找到CreateAndSaveSettingAsset方法");
+                    }
+
+                    // 调用CreateAndSaveConfigureAsset()方法
+                    MethodInfo createConfigureMethod = settingsExportType.GetMethod("CreateAndSaveConfigureAsset", BindingFlags.Public | BindingFlags.Static);
+                    if (createConfigureMethod != null)
+                    {
+                        createConfigureMethod.Invoke(null, null);
+                        _progressWindow?.AddLog("已通过反射创建 AppConfigures.asset");
+                    }
+                    else
+                    {
+                        _progressWindow?.AddLog("未找到CreateAndSaveConfigureAsset方法");
                     }
                 }
-
-                _progressWindow?.AddLog($"已复制 {copiedCount} 个配置文件到 Assets/Resources");
+                else
+                {
+                    _progressWindow?.AddLog("未找到NovaFramework.Editor.SettingsExport类型");
+                }
 
                 // 刷新Unity资源
                 AssetDatabase.Refresh();
             }
             catch (Exception ex)
             {
-                _progressWindow?.AddLog($"复制配置文件时出错: {ex.Message}");
-                Debug.LogError($"复制配置文件时出错: {ex.Message}");
+                _progressWindow?.AddLog($"通过反射创建配置文件时出错: {ex.Message}");
+                Debug.LogError($"通过反射创建配置文件时出错: {ex.Message}");
+                Debug.LogError($"堆栈跟踪: {ex.StackTrace}");
             }
         }
 

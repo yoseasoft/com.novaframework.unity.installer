@@ -72,7 +72,7 @@ namespace NovaFramework.Editor.Installer
             GUILayout.FlexibleSpace(); // 左侧弹性空间
             
             // 添加按钮间的间距
-            GUILayout.Space(10);
+            // GUILayout.Space(10);
             
             // 添加新程序集按钮，使用标准按钮样式
             if (GUILayout.Button("添加", GUILayout.Width(120), GUILayout.Height(30)))

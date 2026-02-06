@@ -36,6 +36,7 @@ namespace NovaFramework.Editor.Installer
     {
         // 进度窗口引用
         private static AutoInstallProgressWindow _progressWindow;
+        private static string _launcherPackageName = "com.novaframework.unity.launcher";
 
         public static void StartAutoInstall()
         {
@@ -840,50 +841,32 @@ namespace NovaFramework.Editor.Installer
         // 移除launcher模块
         private static void RemoveLauncherModule()
         {
-                 Debug.Log("安装完成移除launcher模块..."); 
-                // 检查是否存在launcher包
-                var request = Client.List();
-                
-                // 等待请求完成
-                int timeout = 0;
-                while (!request.IsCompleted && timeout < 50) // 最多等待5秒
-                {
-                    System.Threading.Thread.Sleep(100);
-                    timeout++;
-                }
-                
-                bool launcherExists = false;
-                
-                // 检查是否存在launcher包
-                if (request.Result != null)
-                {
-                    foreach (var package in request.Result)
-                    {
-                        if (package.name == "com.novaframework.unity.launcher")
-                        {
-                            launcherExists = true;
-                            break;
-                        }
-                    }
-                }
-                
-                if (launcherExists)
-                {
-                    // 如果存在launcher包，则移除它
-                    Events.registeredPackages += OnPackagesRegistered;
-                    Client.Remove("com.novaframework.unity.launcher");
-                    Debug.Log("开始移除launcher模块...");
-                }
-                else
-                {
-                    Debug.Log("不存在launcher模块，直接调用Client.Resolve()");
-                    // 如果不存在launcher包，直接调用Client.Resolve()
-                    Events.registeredPackages += OnPackagesRegistered;
-                    Client.Resolve();
-                }
-                
+            Debug.Log("安装完成移除launcher模块...");
+
+            // 先尝试移除launcher模块
+            Events.registeredPackages += OnPackagesRegistered;
+            var removeRequest = Client.Remove(_launcherPackageName);
+    
+            // 等待移除请求完成
+            int timeout = 0;
+            while (!removeRequest.IsCompleted && timeout < 50) // 最多等待5秒
+            {
+                System.Threading.Thread.Sleep(100);
+                timeout++;
+            }
+
+            // 检查移除结果
+            if (removeRequest.Status == StatusCode.Success)
+            {
+                Debug.Log("launcher模块移除成功");
+            }
+            else
+            {
+                Debug.Log("launcher模块移除失败或未找到，直接调用Client.Resolve()");
+                // 如果移除失败或未找到，直接调用Client.Resolve()
+                Client.Resolve();
+            }
         }
-        
         
         private static void OnPackagesRegistered(PackageRegistrationEventArgs args)
         {

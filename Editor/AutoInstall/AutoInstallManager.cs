@@ -513,6 +513,7 @@ namespace NovaFramework.Editor.Installer
                     {
                         ExportConfigurationMenu.ExportConfiguration();
                         _progressWindow?.AddLog("已导出 system_environments.json 配置文件");
+                         
 
                         // 延迟打开场景
                         EditorApplication.delayCall += () =>
@@ -521,6 +522,7 @@ namespace NovaFramework.Editor.Installer
 
                             EditorApplication.delayCall += () =>
                             {
+                                
                                 OpenMainScene();
 
                                 // 延迟创建安装完成标记文件
@@ -528,17 +530,297 @@ namespace NovaFramework.Editor.Installer
                                 {
                                     UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
                                     _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
-
                                     // 移除launcher模块
                                     RemoveLauncherModule();
+                                    
                                 };
                             };
                         };
+                            
+                        
                     };
                 };
             };
         }
        
+        // 新增方法：创建ManifestConfig资源清单配置
+        private static void CreateManifestConfig()
+        {
+            try
+            {
+                // 确保Resources目录存在
+                string resourcesPath = Path.Combine(Application.dataPath, "Resources");
+                if (!Directory.Exists(resourcesPath))
+                {
+                    Directory.CreateDirectory(resourcesPath);
+                }
+
+                // 查找GooAsset的ManifestConfig类型
+                Type manifestConfigType = null;
+                var assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+                foreach (var assembly in assemblies)
+                {
+                    var type = assembly.GetType("GooAsset.Editor.Build.ManifestConfig");
+                    if (type != null)
+                    {
+                        manifestConfigType = type;
+                        break;
+                    }
+                }
+
+                if (manifestConfigType != null)
+                {
+                    // 创建ManifestConfig实例
+                    var manifestConfig = ScriptableObject.CreateInstance(manifestConfigType);
+
+                    // 设置构建选项
+                    var buildOptionsField = manifestConfigType.GetField("buildAssetBundleOptions", BindingFlags.Public | BindingFlags.Instance);
+                    if (buildOptionsField != null)
+                    {
+                        buildOptionsField.SetValue(manifestConfig, UnityEditor.BuildAssetBundleOptions.ChunkBasedCompression);
+                    }
+
+                    // 创建默认资源组
+                    var groupsField = manifestConfigType.GetField("groups", BindingFlags.Public | BindingFlags.Instance);
+                    if (groupsField != null)
+                    {
+                        // 获取Group类型
+                        Type groupType = null;
+                        foreach (var assembly in assemblies)
+                        {
+                            var type = assembly.GetType("GooAsset.Editor.Build.Group");
+                            if (type != null)
+                            {
+                                groupType = type;
+                                break;
+                            }
+                        }
+
+                        if (groupType != null)
+                        {
+                            // 创建一个默认的资源组列表 - 使用List<Group>类型
+                            var listType = typeof(List<>).MakeGenericType(groupType);
+                            var groupsList = Activator.CreateInstance(listType) as System.Collections.IList;
+
+                            // 创建默认资源组
+                            var defaultGroup = Activator.CreateInstance(groupType);
+                            
+                            // 设置默认组的属性
+                            var noteField = groupType.GetField("note");
+                            if (noteField != null)
+                                noteField.SetValue(defaultGroup, "Default Group");
+
+                            var tagField = groupType.GetField("tag");
+                            if (tagField != null)
+                                tagField.SetValue(defaultGroup, "default");
+
+                            var bundleModeField = groupType.GetField("bundleMode");
+                            if (bundleModeField != null)
+                            {
+                                // 获取BundleMode枚举值 - 单独打包
+                                Type bundleModeType = null;
+                                foreach (var assembly in assemblies)
+                                {
+                                    var type = assembly.GetType("GooAsset.Editor.Build.BundleMode");
+                                    if (type != null)
+                                    {
+                                        bundleModeType = type;
+                                        break;
+                                    }
+                                }
+                                
+                                if (bundleModeType != null)
+                                {
+                                    // 获取枚举值"单独打包"
+                                    object separateBundle = null;
+                                    foreach (var value in Enum.GetValues(bundleModeType))
+                                    {
+                                        if (value.ToString() == "单独打包")
+                                        {
+                                            separateBundle = value;
+                                            break;
+                                        }
+                                    }
+                                    if (separateBundle != null)
+                                    {
+                                        bundleModeField.SetValue(defaultGroup, separateBundle);
+                                    }
+                                }
+                            }
+
+                            groupsList.Add(defaultGroup);
+                            groupsField.SetValue(manifestConfig, groupsList);
+                        }
+                    }
+
+                    // 确保Resources/GooAsset目录存在
+                    string gooAssetPath = Path.Combine(resourcesPath, "GooAsset");
+                    if (!Directory.Exists(gooAssetPath))
+                    {
+                        Directory.CreateDirectory(gooAssetPath);
+                    }
+
+                    // 保存ManifestConfig为Asset
+                    string assetPath = "Assets/Resources/GooAsset/DefaultManifestConfig.asset";
+                    AssetDatabase.CreateAsset(manifestConfig, assetPath);
+                    AssetDatabase.SaveAssets();
+                    AssetDatabase.Refresh();
+                    
+                    _progressWindow?.AddLog($"已创建资源清单配置: {assetPath}");
+                }
+                else
+                {
+                    _progressWindow?.AddLog("未能找到GooAsset.Editor.Build.ManifestConfig类型");
+                }
+            }
+            catch (Exception ex)
+            {
+                _progressWindow?.AddLog($"创建资源清单配置时出错: {ex.Message}");
+                Debug.LogError($"创建资源清单配置时出错: {ex.Message}");
+                Debug.LogError($"堆栈跟踪: {ex.StackTrace}");
+            }
+        }
+
+        // 新增方法：为测试创建ManifestConfig资源清单配置
+        public static void CreateManifestConfigForTest(AutoInstallProgressWindow progressWindow = null)
+        {
+            try
+            {
+                // 确保Resources目录存在
+                string resourcesPath = Path.Combine(Application.dataPath, "Resources");
+                if (!Directory.Exists(resourcesPath))
+                {
+                    Directory.CreateDirectory(resourcesPath);
+                }
+
+                // 查找GooAsset的ManifestConfig类型
+                Type manifestConfigType = null;
+                var assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+                foreach (var assembly in assemblies)
+                {
+                    var type = assembly.GetType("GooAsset.Editor.Build.ManifestConfig");
+                    if (type != null)
+                    {
+                        manifestConfigType = type;
+                        break;
+                    }
+                }
+
+                if (manifestConfigType != null)
+                {
+                    // 创建ManifestConfig实例
+                    var manifestConfig = ScriptableObject.CreateInstance(manifestConfigType);
+
+                    // 设置构建选项
+                    var buildOptionsField = manifestConfigType.GetField("buildAssetBundleOptions", BindingFlags.Public | BindingFlags.Instance);
+                    if (buildOptionsField != null)
+                    {
+                        buildOptionsField.SetValue(manifestConfig, UnityEditor.BuildAssetBundleOptions.ChunkBasedCompression);
+                    }
+
+                    // 创建默认资源组
+                    var groupsField = manifestConfigType.GetField("groups", BindingFlags.Public | BindingFlags.Instance);
+                    if (groupsField != null)
+                    {
+                        // 获取Group类型
+                        Type groupType = null;
+                        foreach (var assembly in assemblies)
+                        {
+                            var type = assembly.GetType("GooAsset.Editor.Build.Group");
+                            if (type != null)
+                            {
+                                groupType = type;
+                                break;
+                            }
+                        }
+
+                        if (groupType != null)
+                        {
+                            // 创建一个默认的资源组列表 - 使用List<Group>类型
+                            var listType = typeof(List<>).MakeGenericType(groupType);
+                            var groupsList = Activator.CreateInstance(listType) as System.Collections.IList;
+
+                            // 创建默认资源组
+                            var defaultGroup = Activator.CreateInstance(groupType);
+                            
+                            // 设置默认组的属性
+                            var noteField = groupType.GetField("note");
+                            if (noteField != null)
+                                noteField.SetValue(defaultGroup, "Default Group");
+
+                            var tagField = groupType.GetField("tag");
+                            if (tagField != null)
+                                tagField.SetValue(defaultGroup, "default");
+
+                            var bundleModeField = groupType.GetField("bundleMode");
+                            if (bundleModeField != null)
+                            {
+                                // 获取BundleMode枚举值 - 单独打包
+                                Type bundleModeType = null;
+                                foreach (var assembly in assemblies)
+                                {
+                                    var type = assembly.GetType("GooAsset.Editor.Build.BundleMode");
+                                    if (type != null)
+                                    {
+                                        bundleModeType = type;
+                                        break;
+                                    }
+                                }
+                                
+                                if (bundleModeType != null)
+                                {
+                                    // 获取枚举值"单独打包"
+                                    object separateBundle = null;
+                                    foreach (var value in Enum.GetValues(bundleModeType))
+                                    {
+                                        if (value.ToString() == "整组打包")
+                                        {
+                                            separateBundle = value;
+                                            break;
+                                        }
+                                    }
+                                    if (separateBundle != null)
+                                    {
+                                        bundleModeField.SetValue(defaultGroup, separateBundle);
+                                    }
+                                }
+                            }
+
+                            groupsList.Add(defaultGroup);
+                            groupsField.SetValue(manifestConfig, groupsList);
+                        }
+                    }
+
+                    // 确保Resources/GooAsset目录存在
+                    string gooAssetPath = Path.Combine(resourcesPath, "GooAsset");
+                    if (!Directory.Exists(gooAssetPath))
+                    {
+                        Directory.CreateDirectory(gooAssetPath);
+                    }
+
+                    // 保存ManifestConfig为Asset
+                    string assetPath = "Assets/Resources/GooAsset/TestManifestConfig.asset";
+                    AssetDatabase.CreateAsset(manifestConfig, assetPath);
+                    AssetDatabase.SaveAssets();
+                    AssetDatabase.Refresh();
+                    
+                    progressWindow?.AddLog($"已创建测试资源清单配置: {assetPath}");
+                    Debug.Log($"已创建测试资源清单配置: {assetPath}");
+                }
+                else
+                {
+                    progressWindow?.AddLog("未能找到GooAsset.Editor.Build.ManifestConfig类型");
+                    Debug.LogError("未能找到GooAsset.Editor.Build.ManifestConfig类型");
+                }
+            }
+            catch (Exception ex)
+            {
+                progressWindow?.AddLog($"创建资源清单配置时出错: {ex.Message}");
+                Debug.LogError($"创建资源清单配置时出错: {ex.Message}");
+                Debug.LogError($"堆栈跟踪: {ex.StackTrace}");
+            }
+        }
+
         private static void OpenMainScene()
         {
             string mainScenePath = "Assets/Scenes/main.unity";
@@ -558,7 +840,7 @@ namespace NovaFramework.Editor.Installer
         // 移除launcher模块
         private static void RemoveLauncherModule()
         {
-            
+                 Debug.Log("安装完成移除launcher模块..."); 
                 // 检查是否存在launcher包
                 var request = Client.List();
                 
@@ -594,6 +876,7 @@ namespace NovaFramework.Editor.Installer
                 }
                 else
                 {
+                    Debug.Log("不存在launcher模块，直接调用Client.Resolve()");
                     // 如果不存在launcher包，直接调用Client.Resolve()
                     Events.registeredPackages += OnPackagesRegistered;
                     Client.Resolve();

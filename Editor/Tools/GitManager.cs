@@ -42,11 +42,13 @@ namespace NovaFramework.Editor.Installer
         
         private static void InstallPackageFromGit(PackageObject package, string destinationPath)
         {
-            if (!Directory.Exists(destinationPath))
+            // 如果目标目录已存在，先强制删除
+            if (Directory.Exists(destinationPath))
             {
-                Directory.CreateDirectory(destinationPath);
+                ForceDeleteDirectory(destinationPath);
             }
-            
+
+            Directory.CreateDirectory(destinationPath);
             bool cloneSuccess = GitUtils.CloneRepository(package.gitRepositoryUrl, destinationPath);
             
             if (cloneSuccess)

@@ -24,6 +24,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using NovaFramework.Editor.Manifest;
+using NovaFramework.Editor.Preference;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -133,16 +134,11 @@ namespace NovaFramework.Editor.Installer
         {
             if (currentIndex >= packagesList.Count)
             {
-                // 所有包已添加到manifest.json，不需要显式调用ResolveAllPackages
-                // GitManager.InstallPackage 会自动触发包管理器更新
-                _progressWindow?.AddLog("所有包配置完成...");
 
-                // 刷新资源
-                _progressWindow?.AddLog("正在刷新资源...");
-
+                _progressWindow?.AddLog("所有包配置完成...正在刷新资源...");
                 // 直接执行下一步
                 CreateDirectories();
-                
+
                 return;
             }
 
@@ -165,8 +161,6 @@ namespace NovaFramework.Editor.Installer
                 // 开始安装包，跳过com.novaframework.unity.core.common包安装
                 if (packageName == Constants.COMMON_PACKAGE_NAME)
                 {
-                    _progressWindow?.AddLog($"  跳过: {packageName} (公共包)");
-
                     // 延迟执行下一个，让UI有机会更新
                     EditorApplication.delayCall += () =>
                     {
@@ -178,7 +172,6 @@ namespace NovaFramework.Editor.Installer
                 PackageObject packageInfo = PackageManager.GetPackageObjectByName(packageName);
                 if (packageInfo == null)
                 {
-                    _progressWindow?.AddLog($"  警告: 未找到包信息 {packageName}，跳过");
                     Debug.LogWarning($"[AutoInstall] 未找到包信息: {packageName}");
                     EditorApplication.delayCall += () =>
                     {
@@ -186,7 +179,6 @@ namespace NovaFramework.Editor.Installer
                     };
                     return;
                 }
-
 
 
                 // 使用标志来跟踪是否回调已完成
@@ -240,10 +232,7 @@ namespace NovaFramework.Editor.Installer
                 _progressWindow?.AddLog($"  警告: 配置包 {packageName} 时发生异常: {ex.Message}");
                 Debug.LogError($"[AutoInstall] 配置包 {packageName} 时发生异常: {ex.Message}\n{ex.StackTrace}");
                 // 即使当前包配置失败，也继续配置下一个包
-                EditorApplication.delayCall += () =>
-                {
-                    InstallPackagesSequentially(packagesList, currentIndex + 1);
-                };
+                EditorApplication.delayCall += () => { InstallPackagesSequentially(packagesList, currentIndex + 1); };
             }
         }
 
@@ -323,11 +312,7 @@ namespace NovaFramework.Editor.Installer
                 Debug.Log("[AutoInstall] Directory creation completed, moving to next step");
 
                 // 延迟继续下一步，让UI有机会更新
-                EditorApplication.delayCall += () =>
-                {
-                    Debug.Log("[AutoInstall] Calling InstallBasePackage from delayCall");
-                    InstallBasePackage();
-                };
+                EditorApplication.delayCall += () => { InstallBasePackage(); };
             }
             catch (Exception ex)
             {
@@ -362,11 +347,7 @@ namespace NovaFramework.Editor.Installer
                     ZipHelper.ExtractZipFile(uiZipPath, sourcesPath);
                     _progressWindow?.AddLog("已解压基础包到 Assets/Sources");
                 }
-                else
-                {
-                    _progressWindow?.AddLog("未找到UI.zip文件，跳过基础包解压步骤");
-                    Debug.LogWarning("未找到UI.zip文件，跳过基础包解压步骤");
-                }
+
 
                 // 2. 创建主场景到Scenes目录
                 string scenesDir = Path.Combine(Application.dataPath, "Scenes");
@@ -394,7 +375,8 @@ namespace NovaFramework.Editor.Installer
 
                 if (systemVariables.ContainsKey("AOT_LIBRARY_PATH"))
                 {
-                    aotDestinationPath = Path.Combine(Application.dataPath, "..", systemVariables["AOT_LIBRARY_PATH"], "Windows");
+                    aotDestinationPath = Path.Combine(Application.dataPath, "..", systemVariables["AOT_LIBRARY_PATH"],
+                        "Windows");
                 }
                 else
                 {
@@ -409,7 +391,8 @@ namespace NovaFramework.Editor.Installer
                 }
 
                 // 从工具包内的AOT目录复制DLL.byte文件到目标AOT/Windows目录
-                string sourceAotPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH, "Editor Default Resources/Aot/Windows");
+                string sourceAotPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
+                    "Editor Default Resources/Aot/Windows");
                 if (Directory.Exists(sourceAotPath))
                 {
                     string[] dllFiles = Directory.GetFiles(sourceAotPath, "*.dll.bytes", SearchOption.TopDirectoryOnly);
@@ -426,22 +409,23 @@ namespace NovaFramework.Editor.Installer
                 else
                 {
                     _progressWindow?.AddLog($"AOT源目录不存在，跳过DLL复制");
-                    Debug.LogWarning($"AOT源目录不存在: {sourceAotPath}，跳过DLL.byte复制");
                 }
-
-
+                
+                // 4.复制默认资源
+                CopyDefaultRes();
 
                 // 延迟生成Nova框架配置，让UI有机会更新
                 EditorApplication.delayCall += () =>
                 {
+                    // 调用所有自定义模块的安装方法
+                    AutoInstallInvoker.InvokeAllInstall();
+
                     GenerateNovaFrameworkConfig();
                 };
             }
             catch (Exception ex)
             {
                 _progressWindow?.SetError($"安装基础包时出错: {ex.Message}");
-                Debug.LogError($"安装基础包时出错: {ex.Message}");
-                Debug.LogError($"堆栈跟踪: {ex.StackTrace}");
             }
         }
 
@@ -481,10 +465,7 @@ namespace NovaFramework.Editor.Installer
                 _progressWindow?.AddLog("框架配置准备完成");
 
                 // 延迟完成安装，让UI有机会更新
-                EditorApplication.delayCall += () =>
-                {
-                    CompleteInstallation();
-                };
+                EditorApplication.delayCall += () => { CompleteInstallation(); };
             }
             catch (Exception ex)
             {
@@ -500,327 +481,47 @@ namespace NovaFramework.Editor.Installer
             // 复制Configs目录下所有文件到Assets/Resources/
             _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.CopyResources);
 
-            // 延迟执行，让进度界面先刷新
+
+            // 延迟导出配置
             EditorApplication.delayCall += () =>
             {
-                CopyConfigsToResources();
+                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.ExportConfig);
 
-                // 延迟导出配置
                 EditorApplication.delayCall += () =>
                 {
-                    _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.ExportConfig);
+                    ExportConfigurationMenu.ExportConfiguration();
+                    _progressWindow?.AddLog("已导出 system_environments.json 配置文件");
 
+
+                    // 延迟打开场景
                     EditorApplication.delayCall += () =>
                     {
-                        ExportConfigurationMenu.ExportConfiguration();
-                        _progressWindow?.AddLog("已导出 system_environments.json 配置文件");
-                         
+                        _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.OpenScene);
 
-                        // 延迟打开场景
                         EditorApplication.delayCall += () =>
                         {
-                            _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.OpenScene);
 
+                            OpenMainScene();
+
+                            // 延迟创建安装完成标记文件
                             EditorApplication.delayCall += () =>
                             {
-                                
-                                OpenMainScene();
+                                UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
+                                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
+                                // 移除launcher模块
+                                RemoveLauncherModule();
 
-                                // 延迟创建安装完成标记文件
-                                EditorApplication.delayCall += () =>
-                                {
-                                    UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
-                                    _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
-                                    // 移除launcher模块
-                                    RemoveLauncherModule();
-                                    
-                                };
                             };
                         };
-                            
-                        
                     };
+
+
                 };
             };
         }
-       
-        // 新增方法：创建ManifestConfig资源清单配置
-        private static void CreateManifestConfig()
-        {
-            try
-            {
-                // 确保Resources目录存在
-                string resourcesPath = Path.Combine(Application.dataPath, "Resources");
-                if (!Directory.Exists(resourcesPath))
-                {
-                    Directory.CreateDirectory(resourcesPath);
-                }
 
-                // 查找GooAsset的ManifestConfig类型
-                Type manifestConfigType = null;
-                var assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
-                foreach (var assembly in assemblies)
-                {
-                    var type = assembly.GetType("GooAsset.Editor.Build.ManifestConfig");
-                    if (type != null)
-                    {
-                        manifestConfigType = type;
-                        break;
-                    }
-                }
 
-                if (manifestConfigType != null)
-                {
-                    // 创建ManifestConfig实例
-                    var manifestConfig = ScriptableObject.CreateInstance(manifestConfigType);
 
-                    // 设置构建选项
-                    var buildOptionsField = manifestConfigType.GetField("buildAssetBundleOptions", BindingFlags.Public | BindingFlags.Instance);
-                    if (buildOptionsField != null)
-                    {
-                        buildOptionsField.SetValue(manifestConfig, UnityEditor.BuildAssetBundleOptions.ChunkBasedCompression);
-                    }
-
-                    // 创建默认资源组
-                    var groupsField = manifestConfigType.GetField("groups", BindingFlags.Public | BindingFlags.Instance);
-                    if (groupsField != null)
-                    {
-                        // 获取Group类型
-                        Type groupType = null;
-                        foreach (var assembly in assemblies)
-                        {
-                            var type = assembly.GetType("GooAsset.Editor.Build.Group");
-                            if (type != null)
-                            {
-                                groupType = type;
-                                break;
-                            }
-                        }
-
-                        if (groupType != null)
-                        {
-                            // 创建一个默认的资源组列表 - 使用List<Group>类型
-                            var listType = typeof(List<>).MakeGenericType(groupType);
-                            var groupsList = Activator.CreateInstance(listType) as System.Collections.IList;
-
-                            // 创建默认资源组
-                            var defaultGroup = Activator.CreateInstance(groupType);
-                            
-                            // 设置默认组的属性
-                            var noteField = groupType.GetField("note");
-                            if (noteField != null)
-                                noteField.SetValue(defaultGroup, "Default Group");
-
-                            var tagField = groupType.GetField("tag");
-                            if (tagField != null)
-                                tagField.SetValue(defaultGroup, "default");
-
-                            var bundleModeField = groupType.GetField("bundleMode");
-                            if (bundleModeField != null)
-                            {
-                                // 获取BundleMode枚举值 - 单独打包
-                                Type bundleModeType = null;
-                                foreach (var assembly in assemblies)
-                                {
-                                    var type = assembly.GetType("GooAsset.Editor.Build.BundleMode");
-                                    if (type != null)
-                                    {
-                                        bundleModeType = type;
-                                        break;
-                                    }
-                                }
-                                
-                                if (bundleModeType != null)
-                                {
-                                    // 获取枚举值"单独打包"
-                                    object separateBundle = null;
-                                    foreach (var value in Enum.GetValues(bundleModeType))
-                                    {
-                                        if (value.ToString() == "单独打包")
-                                        {
-                                            separateBundle = value;
-                                            break;
-                                        }
-                                    }
-                                    if (separateBundle != null)
-                                    {
-                                        bundleModeField.SetValue(defaultGroup, separateBundle);
-                                    }
-                                }
-                            }
-
-                            groupsList.Add(defaultGroup);
-                            groupsField.SetValue(manifestConfig, groupsList);
-                        }
-                    }
-
-                    // 确保Resources/GooAsset目录存在
-                    string gooAssetPath = Path.Combine(resourcesPath, "GooAsset");
-                    if (!Directory.Exists(gooAssetPath))
-                    {
-                        Directory.CreateDirectory(gooAssetPath);
-                    }
-
-                    // 保存ManifestConfig为Asset
-                    string assetPath = "Assets/Resources/GooAsset/DefaultManifestConfig.asset";
-                    AssetDatabase.CreateAsset(manifestConfig, assetPath);
-                    AssetDatabase.SaveAssets();
-                    AssetDatabase.Refresh();
-                    
-                    _progressWindow?.AddLog($"已创建资源清单配置: {assetPath}");
-                }
-                else
-                {
-                    _progressWindow?.AddLog("未能找到GooAsset.Editor.Build.ManifestConfig类型");
-                }
-            }
-            catch (Exception ex)
-            {
-                _progressWindow?.AddLog($"创建资源清单配置时出错: {ex.Message}");
-                Debug.LogError($"创建资源清单配置时出错: {ex.Message}");
-                Debug.LogError($"堆栈跟踪: {ex.StackTrace}");
-            }
-        }
-
-        // 新增方法：为测试创建ManifestConfig资源清单配置
-        public static void CreateManifestConfigForTest(AutoInstallProgressWindow progressWindow = null)
-        {
-            try
-            {
-                // 确保Resources目录存在
-                string resourcesPath = Path.Combine(Application.dataPath, "Resources");
-                if (!Directory.Exists(resourcesPath))
-                {
-                    Directory.CreateDirectory(resourcesPath);
-                }
-
-                // 查找GooAsset的ManifestConfig类型
-                Type manifestConfigType = null;
-                var assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
-                foreach (var assembly in assemblies)
-                {
-                    var type = assembly.GetType("GooAsset.Editor.Build.ManifestConfig");
-                    if (type != null)
-                    {
-                        manifestConfigType = type;
-                        break;
-                    }
-                }
-
-                if (manifestConfigType != null)
-                {
-                    // 创建ManifestConfig实例
-                    var manifestConfig = ScriptableObject.CreateInstance(manifestConfigType);
-
-                    // 设置构建选项
-                    var buildOptionsField = manifestConfigType.GetField("buildAssetBundleOptions", BindingFlags.Public | BindingFlags.Instance);
-                    if (buildOptionsField != null)
-                    {
-                        buildOptionsField.SetValue(manifestConfig, UnityEditor.BuildAssetBundleOptions.ChunkBasedCompression);
-                    }
-
-                    // 创建默认资源组
-                    var groupsField = manifestConfigType.GetField("groups", BindingFlags.Public | BindingFlags.Instance);
-                    if (groupsField != null)
-                    {
-                        // 获取Group类型
-                        Type groupType = null;
-                        foreach (var assembly in assemblies)
-                        {
-                            var type = assembly.GetType("GooAsset.Editor.Build.Group");
-                            if (type != null)
-                            {
-                                groupType = type;
-                                break;
-                            }
-                        }
-
-                        if (groupType != null)
-                        {
-                            // 创建一个默认的资源组列表 - 使用List<Group>类型
-                            var listType = typeof(List<>).MakeGenericType(groupType);
-                            var groupsList = Activator.CreateInstance(listType) as System.Collections.IList;
-
-                            // 创建默认资源组
-                            var defaultGroup = Activator.CreateInstance(groupType);
-                            
-                            // 设置默认组的属性
-                            var noteField = groupType.GetField("note");
-                            if (noteField != null)
-                                noteField.SetValue(defaultGroup, "Default Group");
-
-                            var tagField = groupType.GetField("tag");
-                            if (tagField != null)
-                                tagField.SetValue(defaultGroup, "default");
-
-                            var bundleModeField = groupType.GetField("bundleMode");
-                            if (bundleModeField != null)
-                            {
-                                // 获取BundleMode枚举值 - 单独打包
-                                Type bundleModeType = null;
-                                foreach (var assembly in assemblies)
-                                {
-                                    var type = assembly.GetType("GooAsset.Editor.Build.BundleMode");
-                                    if (type != null)
-                                    {
-                                        bundleModeType = type;
-                                        break;
-                                    }
-                                }
-                                
-                                if (bundleModeType != null)
-                                {
-                                    // 获取枚举值"单独打包"
-                                    object separateBundle = null;
-                                    foreach (var value in Enum.GetValues(bundleModeType))
-                                    {
-                                        if (value.ToString() == "整组打包")
-                                        {
-                                            separateBundle = value;
-                                            break;
-                                        }
-                                    }
-                                    if (separateBundle != null)
-                                    {
-                                        bundleModeField.SetValue(defaultGroup, separateBundle);
-                                    }
-                                }
-                            }
-
-                            groupsList.Add(defaultGroup);
-                            groupsField.SetValue(manifestConfig, groupsList);
-                        }
-                    }
-
-                    // 确保Resources/GooAsset目录存在
-                    string gooAssetPath = Path.Combine(resourcesPath, "GooAsset");
-                    if (!Directory.Exists(gooAssetPath))
-                    {
-                        Directory.CreateDirectory(gooAssetPath);
-                    }
-
-                    // 保存ManifestConfig为Asset
-                    string assetPath = "Assets/Resources/GooAsset/TestManifestConfig.asset";
-                    AssetDatabase.CreateAsset(manifestConfig, assetPath);
-                    AssetDatabase.SaveAssets();
-                    AssetDatabase.Refresh();
-                    
-                    progressWindow?.AddLog($"已创建测试资源清单配置: {assetPath}");
-                    Debug.Log($"已创建测试资源清单配置: {assetPath}");
-                }
-                else
-                {
-                    progressWindow?.AddLog("未能找到GooAsset.Editor.Build.ManifestConfig类型");
-                    Debug.LogError("未能找到GooAsset.Editor.Build.ManifestConfig类型");
-                }
-            }
-            catch (Exception ex)
-            {
-                progressWindow?.AddLog($"创建资源清单配置时出错: {ex.Message}");
-                Debug.LogError($"创建资源清单配置时出错: {ex.Message}");
-                Debug.LogError($"堆栈跟踪: {ex.StackTrace}");
-            }
-        }
 
         private static void OpenMainScene()
         {
@@ -829,11 +530,6 @@ namespace NovaFramework.Editor.Installer
             {
                 EditorSceneManager.OpenScene(mainScenePath);
                 _progressWindow?.AddLog("已打开主场景: " + mainScenePath);
-            }
-            else
-            {
-                _progressWindow?.AddLog("主场景文件不存在，请手动创建");
-                Debug.LogWarning("主场景文件不存在: " + mainScenePath + "，请手动创建或复制");
             }
 
         }
@@ -846,7 +542,7 @@ namespace NovaFramework.Editor.Installer
             // 先尝试移除launcher模块
             Events.registeredPackages += OnPackagesRegistered;
             var removeRequest = Client.Remove(_launcherPackageName);
-    
+
             // 等待移除请求完成
             int timeout = 0;
             while (!removeRequest.IsCompleted && timeout < 50) // 最多等待5秒
@@ -856,85 +552,94 @@ namespace NovaFramework.Editor.Installer
             }
 
             // 检查移除结果
-            if (removeRequest.Status == StatusCode.Success)
-            {
-                Debug.Log("launcher模块移除成功");
-            }
-            else
+            if (removeRequest.Status != StatusCode.Success)
             {
                 Debug.Log("launcher模块移除失败或未找到，直接调用Client.Resolve()");
-                // 如果移除失败或未找到，直接调用Client.Resolve()
                 Client.Resolve();
             }
         }
-        
+
         private static void OnPackagesRegistered(PackageRegistrationEventArgs args)
         {
             // 移除事件监听器以避免重复调用
             Events.registeringPackages -= OnPackagesRegistered;
             Debug.Log("OnPackagesRegistered... 包安装完成，创建配置");
-            CopyConfigsToResources();
 
         }
         
-
-        // 新增方法：复制Configs目录下所有文件到Assets/Resources/
-        internal static void CopyConfigsToResources()
+  
+        public static void CopyDefaultRes()
         {
-            try
+            string sourceGuiPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
+                "Editor Default Resources/GUI");
+            string sourceTexturePath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
+                "Editor Default Resources/Texture");
+            
+            Debug.Log($"[AutoInstall] 开始复制默认资源...");
+            Debug.Log($"[AutoInstall] GUI源目录路径: {sourceGuiPath}");
+            Debug.Log($"[AutoInstall] Texture源目录路径: {sourceTexturePath}");
+            
+            // 确保源目录存在再进行复制操作
+            if (Directory.Exists(sourceGuiPath))
             {
-                string resourcesPath = Path.Combine(Application.dataPath, "Resources");
+                string[] guiFiles = Directory.GetFiles(sourceGuiPath, "*.prefab", SearchOption.TopDirectoryOnly);
+                Debug.Log($"[AutoInstall] 在GUI目录中找到 {guiFiles.Length} 个prefab文件");
 
-                if (!Directory.Exists(resourcesPath))
+                foreach (string guiprefab in guiFiles)
                 {
-                    Directory.CreateDirectory(resourcesPath);
+                    string fileName = Path.GetFileName(guiprefab);
+                    string aotDestinationPath = Path.Combine(Application.dataPath, "_Resources", "GUI");
+                    
+                    // 确保目标目录存在
+                    Directory.CreateDirectory(aotDestinationPath);
+                    
+                    string destinationFilePath = Path.Combine(aotDestinationPath, fileName);
+                    File.Copy(guiprefab, destinationFilePath, true); // true表示覆盖已存在的文件
+                    Debug.Log($"[AutoInstall] 已复制 prefab: {fileName}");
                 }
 
-                // 使用反射调用SettingsExport类的方法来创建配置文件
-                Type settingsExportType = Type.GetType("NovaFramework.Editor.SettingsExport, NovaEditor.Boot");
-                if (settingsExportType != null)
-                {
-                    // 调用CreateAndSaveSettingAsset()方法
-                    MethodInfo createSettingMethod = settingsExportType.GetMethod("CreateAndSaveSettingAsset", BindingFlags.Public | BindingFlags.Static);
-                    if (createSettingMethod != null)
-                    {
-                        createSettingMethod.Invoke(null, null);
-                        _progressWindow?.AddLog("已通过反射创建 AppSettings.asset");
-                    }
-                    else
-                    {
-                        _progressWindow?.AddLog("未找到CreateAndSaveSettingAsset方法");
-                    }
-
-                    // 调用CreateAndSaveConfigureAsset()方法
-                    MethodInfo createConfigureMethod = settingsExportType.GetMethod("CreateAndSaveConfigureAsset", BindingFlags.Public | BindingFlags.Static);
-                    if (createConfigureMethod != null)
-                    {
-                        createConfigureMethod.Invoke(null, null);
-                        _progressWindow?.AddLog("已通过反射创建 AppConfigures.asset");
-                    }
-                    else
-                    {
-                        _progressWindow?.AddLog("未找到CreateAndSaveConfigureAsset方法");
-                    }
-                }
-                else
-                {
-                    _progressWindow?.AddLog("未找到NovaFramework.Editor.SettingsExport类型");
-                }
-
-                // 刷新Unity资源
-                AssetDatabase.Refresh();
+                _progressWindow?.AddLog($"已复制 {guiFiles.Length} 个prefab");
+                Debug.Log($"[AutoInstall] 成功复制 {guiFiles.Length} 个prefab文件");
             }
-            catch (Exception ex)
+            else
             {
-                _progressWindow?.AddLog($"通过反射创建配置文件时出错: {ex.Message}");
-                Debug.LogError($"通过反射创建配置文件时出错: {ex.Message}");
-                Debug.LogError($"堆栈跟踪: {ex.StackTrace}");
+                string logMessage = $"GUI源目录不存在: {sourceGuiPath}";
+                _progressWindow?.AddLog(logMessage);
+                Debug.Log($"[AutoInstall] {logMessage}");
             }
+            
+            // 确保源目录存在再进行复制操作
+            if (Directory.Exists(sourceTexturePath))
+            {
+                string[] textureFiles = Directory.GetFiles(sourceTexturePath, "*.png", SearchOption.TopDirectoryOnly);
+                Debug.Log($"[AutoInstall] 在Texture目录中找到 {textureFiles.Length} 个png文件");
+
+                foreach (string textureFile in textureFiles)
+                {
+                    string fileName = Path.GetFileName(textureFile);
+                    string textureDestinationPath = Path.Combine(Application.dataPath, "_Resources", "Texture");
+                    
+                    // 确保目标目录存在
+                    Directory.CreateDirectory(textureDestinationPath);
+                    
+                    string destinationFilePath = Path.Combine(textureDestinationPath, fileName);
+                    File.Copy(textureFile, destinationFilePath, true); // true表示覆盖已存在的文件
+                    Debug.Log($"[AutoInstall] 已复制 texture: {fileName}");
+                }
+
+                _progressWindow?.AddLog($"已复制 {textureFiles.Length} 个Texture");
+                Debug.Log($"[AutoInstall] 成功复制 {textureFiles.Length} 个texture文件");
+            }
+            else
+            {
+                string logMessage = $"Texture源目录不存在: {sourceTexturePath}";
+                _progressWindow?.AddLog(logMessage);
+                Debug.Log($"[AutoInstall] {logMessage}");
+            }
+            
+            Debug.Log($"[AutoInstall] 复制默认资源完成");
         }
 
     }
-    
-    
+
 }

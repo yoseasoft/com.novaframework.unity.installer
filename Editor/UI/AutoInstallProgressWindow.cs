@@ -464,7 +464,6 @@ namespace NovaFramework.Editor.Installer
                 EditorApplication.delayCall += () =>
                 {
                     Debug.Log("安装完成，即将调用配置中心");
-                    AutoInstallManager.CopyConfigsToResources();
                     ConfigurationWindow.StartAutoConfiguration();
                 };
             }

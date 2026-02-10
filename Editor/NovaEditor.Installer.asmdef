@@ -3,7 +3,8 @@
     "rootNamespace": "",
     "references": [
         "NovaEditor.Common",
-        "NovaFramework.Common"
+        "NovaFramework.Common",
+        "GooAsset.Editor"
     ],
     "includePlatforms": [
         "Editor"

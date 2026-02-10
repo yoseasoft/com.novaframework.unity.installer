@@ -426,9 +426,16 @@ namespace NovaFramework.Editor.Installer
             }
             else if (_isComplete)
             {
-                EditorGUILayout.LabelField("安装完成！", _successStyle);
+                // 移除了"安装完成！"的文本显示
                                
-                if (GUILayout.Button("关闭", GUILayout.Height(30)))
+                // 创建绿色按钮样式
+                GUIStyle greenButtonStyle = new GUIStyle(GUI.skin.button);
+                greenButtonStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f); // 绿色
+                greenButtonStyle.hover.textColor = new Color(0.2f, 0.9f, 0.2f); // 悬停时更亮的绿色
+                greenButtonStyle.fontSize = 14; // 增大字体
+                greenButtonStyle.fontStyle = FontStyle.Bold;
+                
+                if (GUILayout.Button("完成安装", greenButtonStyle, GUILayout.Height(35)))
                 {
                     Close();
                 }

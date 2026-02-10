@@ -166,9 +166,6 @@ namespace NovaFramework.Editor.Installer
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace(); // 左侧弹性空间
             
-            // 添加按钮间的间距
-            GUILayout.Space(10);
-            
             if (GUILayout.Button("重置", GUILayout.Width(120), GUILayout.Height(30)))
             {
                 _systemVariables = GetDefaultSystemVariablesFromPathInfos();

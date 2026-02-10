@@ -104,6 +104,9 @@ namespace NovaFramework.Editor.Installer
             // 如果正在显示向导按钮，则锁定标签页显示
             if (_showWizardButtons)
             {
+                // 设置各视图到向导模式
+                _packageView.SetWizardMode(true);
+                
                 // 显示当前配置步骤的标签页
                 _selectedTab = GUILayout.Toolbar(0, new string[] { _tabNames[_currentStep] }, tabStyle);
                 
@@ -142,9 +145,15 @@ namespace NovaFramework.Editor.Installer
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 
+                // 创建天空蓝色按钮样式
+                GUIStyle skyBlueButtonStyle = new GUIStyle(GUI.skin.button);
+                skyBlueButtonStyle.normal.textColor = new Color(0.2f, 0.6f, 1.0f); // 天空蓝
+                skyBlueButtonStyle.hover.textColor = new Color(0.5f, 0.8f, 1.0f); // 浅天空蓝
+                skyBlueButtonStyle.fontSize = 14;
+                
                 if (_currentStep < 2) // 前两步显示"下一步"
                 {
-                    if (GUILayout.Button("下一步", GUILayout.Width(120), GUILayout.Height(30)))
+                    if (GUILayout.Button("下一步", skyBlueButtonStyle, GUILayout.Width(120), GUILayout.Height(30)))
                     {
                         ExecuteCurrentStep();
                         _currentStep++;
@@ -152,7 +161,7 @@ namespace NovaFramework.Editor.Installer
                 }
                 else if (_currentStep == 2) // 最后一步显示"完成"
                 {
-                    if (GUILayout.Button("完成", GUILayout.Width(120), GUILayout.Height(30)))
+                    if (GUILayout.Button("完成", skyBlueButtonStyle, GUILayout.Width(120), GUILayout.Height(30)))
                     {
                         ExecuteCurrentStep(); // 执行最后一步
                         FinishAutoConfiguration();
@@ -164,6 +173,9 @@ namespace NovaFramework.Editor.Installer
             }
             else
             {
+                // 设置各视图到正常模式
+                _packageView.SetWizardMode(false);
+                
                 // 正常模式下显示所有标签页
                 _selectedTab = GUILayout.Toolbar(_selectedTab, _tabNames, tabStyle);
                 

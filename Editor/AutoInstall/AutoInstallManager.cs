@@ -22,7 +22,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using NovaFramework.Editor.Manifest;
+using NovaFramework.Editor.Preference;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -35,6 +37,7 @@ namespace NovaFramework.Editor.Installer
     {
         // 进度窗口引用
         private static AutoInstallProgressWindow _progressWindow;
+        private static string _launcherPackageName = "com.novaframework.unity.launcher";
 
         public static void StartAutoInstall()
         {
@@ -131,16 +134,11 @@ namespace NovaFramework.Editor.Installer
         {
             if (currentIndex >= packagesList.Count)
             {
-                // 所有包已添加到manifest.json，不需要显式调用ResolveAllPackages
-                // GitManager.InstallPackage 会自动触发包管理器更新
-                _progressWindow?.AddLog("所有包配置完成...");
 
-                // 刷新资源
-                _progressWindow?.AddLog("正在刷新资源...");
-
+                _progressWindow?.AddLog("所有包配置完成...正在刷新资源...");
                 // 直接执行下一步
                 CreateDirectories();
-                
+
                 return;
             }
 
@@ -163,8 +161,6 @@ namespace NovaFramework.Editor.Installer
                 // 开始安装包，跳过com.novaframework.unity.core.common包安装
                 if (packageName == Constants.COMMON_PACKAGE_NAME)
                 {
-                    _progressWindow?.AddLog($"  跳过: {packageName} (公共包)");
-
                     // 延迟执行下一个，让UI有机会更新
                     EditorApplication.delayCall += () =>
                     {
@@ -176,7 +172,6 @@ namespace NovaFramework.Editor.Installer
                 PackageObject packageInfo = PackageManager.GetPackageObjectByName(packageName);
                 if (packageInfo == null)
                 {
-                    _progressWindow?.AddLog($"  警告: 未找到包信息 {packageName}，跳过");
                     Debug.LogWarning($"[AutoInstall] 未找到包信息: {packageName}");
                     EditorApplication.delayCall += () =>
                     {
@@ -184,7 +179,6 @@ namespace NovaFramework.Editor.Installer
                     };
                     return;
                 }
-
 
 
                 // 使用标志来跟踪是否回调已完成
@@ -238,10 +232,7 @@ namespace NovaFramework.Editor.Installer
                 _progressWindow?.AddLog($"  警告: 配置包 {packageName} 时发生异常: {ex.Message}");
                 Debug.LogError($"[AutoInstall] 配置包 {packageName} 时发生异常: {ex.Message}\n{ex.StackTrace}");
                 // 即使当前包配置失败，也继续配置下一个包
-                EditorApplication.delayCall += () =>
-                {
-                    InstallPackagesSequentially(packagesList, currentIndex + 1);
-                };
+                EditorApplication.delayCall += () => { InstallPackagesSequentially(packagesList, currentIndex + 1); };
             }
         }
 
@@ -321,11 +312,7 @@ namespace NovaFramework.Editor.Installer
                 Debug.Log("[AutoInstall] Directory creation completed, moving to next step");
 
                 // 延迟继续下一步，让UI有机会更新
-                EditorApplication.delayCall += () =>
-                {
-                    Debug.Log("[AutoInstall] Calling InstallBasePackage from delayCall");
-                    InstallBasePackage();
-                };
+                EditorApplication.delayCall += () => { InstallBasePackage(); };
             }
             catch (Exception ex)
             {
@@ -360,11 +347,7 @@ namespace NovaFramework.Editor.Installer
                     ZipHelper.ExtractZipFile(uiZipPath, sourcesPath);
                     _progressWindow?.AddLog("已解压基础包到 Assets/Sources");
                 }
-                else
-                {
-                    _progressWindow?.AddLog("未找到UI.zip文件，跳过基础包解压步骤");
-                    Debug.LogWarning("未找到UI.zip文件，跳过基础包解压步骤");
-                }
+
 
                 // 2. 创建主场景到Scenes目录
                 string scenesDir = Path.Combine(Application.dataPath, "Scenes");
@@ -392,7 +375,8 @@ namespace NovaFramework.Editor.Installer
 
                 if (systemVariables.ContainsKey("AOT_LIBRARY_PATH"))
                 {
-                    aotDestinationPath = Path.Combine(Application.dataPath, "..", systemVariables["AOT_LIBRARY_PATH"], "Windows");
+                    aotDestinationPath = Path.Combine(Application.dataPath, "..", systemVariables["AOT_LIBRARY_PATH"],
+                        "Windows");
                 }
                 else
                 {
@@ -407,7 +391,8 @@ namespace NovaFramework.Editor.Installer
                 }
 
                 // 从工具包内的AOT目录复制DLL.byte文件到目标AOT/Windows目录
-                string sourceAotPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH, "Editor Default Resources/Aot/Windows");
+                string sourceAotPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
+                    "Editor Default Resources/Aot/Windows");
                 if (Directory.Exists(sourceAotPath))
                 {
                     string[] dllFiles = Directory.GetFiles(sourceAotPath, "*.dll.bytes", SearchOption.TopDirectoryOnly);
@@ -424,22 +409,23 @@ namespace NovaFramework.Editor.Installer
                 else
                 {
                     _progressWindow?.AddLog($"AOT源目录不存在，跳过DLL复制");
-                    Debug.LogWarning($"AOT源目录不存在: {sourceAotPath}，跳过DLL.byte复制");
                 }
-
-
+                
+                // 4.复制默认资源
+                CopyDefaultRes();
 
                 // 延迟生成Nova框架配置，让UI有机会更新
                 EditorApplication.delayCall += () =>
                 {
+                    // 调用所有自定义模块的安装方法
+                    AutoInstallInvoker.InvokeAllInstall();
+
                     GenerateNovaFrameworkConfig();
                 };
             }
             catch (Exception ex)
             {
                 _progressWindow?.SetError($"安装基础包时出错: {ex.Message}");
-                Debug.LogError($"安装基础包时出错: {ex.Message}");
-                Debug.LogError($"堆栈跟踪: {ex.StackTrace}");
             }
         }
 
@@ -479,10 +465,7 @@ namespace NovaFramework.Editor.Installer
                 _progressWindow?.AddLog("框架配置准备完成");
 
                 // 延迟完成安装，让UI有机会更新
-                EditorApplication.delayCall += () =>
-                {
-                    CompleteInstallation();
-                };
+                EditorApplication.delayCall += () => { CompleteInstallation(); };
             }
             catch (Exception ex)
             {
@@ -498,46 +481,48 @@ namespace NovaFramework.Editor.Installer
             // 复制Configs目录下所有文件到Assets/Resources/
             _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.CopyResources);
 
-            // 延迟执行，让进度界面先刷新
+
+            // 延迟导出配置
             EditorApplication.delayCall += () =>
             {
-                CopyConfigsToResources();
+                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.ExportConfig);
 
-                // 延迟导出配置
                 EditorApplication.delayCall += () =>
                 {
-                    _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.ExportConfig);
+                    ExportConfigurationMenu.ExportConfiguration();
+                    _progressWindow?.AddLog("已导出 system_environments.json 配置文件");
 
+
+                    // 延迟打开场景
                     EditorApplication.delayCall += () =>
                     {
-                        ExportConfigurationMenu.ExportConfiguration();
-                        _progressWindow?.AddLog("已导出 system_environments.json 配置文件");
+                        _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.OpenScene);
 
-                        // 延迟打开场景
                         EditorApplication.delayCall += () =>
                         {
-                            _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.OpenScene);
 
+                            OpenMainScene();
+
+                            // 延迟创建安装完成标记文件
                             EditorApplication.delayCall += () =>
                             {
-                                OpenMainScene();
+                                UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
+                                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
+                                // 移除launcher模块
+                                RemoveLauncherModule();
 
-                                // 延迟创建安装完成标记文件
-                                EditorApplication.delayCall += () =>
-                                {
-                                    UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
-                                    _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
-
-                                    // 移除launcher模块
-                                    RemoveLauncherModule();
-                                };
                             };
                         };
                     };
+
+
                 };
             };
         }
-       
+
+
+
+
         private static void OpenMainScene()
         {
             string mainScenePath = "Assets/Scenes/main.unity";
@@ -546,130 +531,115 @@ namespace NovaFramework.Editor.Installer
                 EditorSceneManager.OpenScene(mainScenePath);
                 _progressWindow?.AddLog("已打开主场景: " + mainScenePath);
             }
-            else
-            {
-                _progressWindow?.AddLog("主场景文件不存在，请手动创建");
-                Debug.LogWarning("主场景文件不存在: " + mainScenePath + "，请手动创建或复制");
-            }
 
         }
 
         // 移除launcher模块
         private static void RemoveLauncherModule()
         {
-            try
-            {
-                // 检查是否存在launcher包
-                var request = Client.List();
-                
-                // 等待请求完成
-                int timeout = 0;
-                while (!request.IsCompleted && timeout < 50) // 最多等待5秒
-                {
-                    System.Threading.Thread.Sleep(100);
-                    timeout++;
-                }
-                
-                bool launcherExists = false;
-                
-                // 检查是否存在launcher包
-                if (request.Result != null)
-                {
-                    foreach (var package in request.Result)
-                    {
-                        if (package.name == "com.novaframework.unity.launcher")
-                        {
-                            launcherExists = true;
-                            break;
-                        }
-                    }
-                }
-                
-                if (launcherExists)
-                {
-                    // 如果存在launcher包，则移除它
-                    Client.Remove("com.novaframework.unity.launcher");
-                    Debug.Log("开始移除launcher模块...");
-                }
-                else
-                {
-                    // 如果不存在launcher包，直接调用Client.Resolve()
-                    // Debug.Log("未找到launcher模块，直接调用Client.Resolve()");
-                    Client.Resolve();
-                }
-                
+            Debug.Log("安装完成移除launcher模块...");
 
-            }
-            catch (Exception ex)
+            // 先尝试移除launcher模块
+            Events.registeredPackages += OnPackagesRegistered;
+            var removeRequest = Client.Remove(_launcherPackageName);
+
+            // 等待移除请求完成
+            int timeout = 0;
+            while (!removeRequest.IsCompleted && timeout < 50) // 最多等待5秒
             {
-                Debug.LogError($"检查或移除launcher模块时出现异常: {ex.Message}");
-                
-                // 如果出现异常，仍然调用Client.Resolve()确保包状态更新
-                try
-                {
-                    Client.Resolve();
-                }
-                catch (Exception resolveEx)
-                {
-                    Debug.LogError($"Client.Resolve()时出现异常: {resolveEx.Message}");
-                }
+                System.Threading.Thread.Sleep(100);
+                timeout++;
+            }
+
+            // 检查移除结果
+            if (removeRequest.Status != StatusCode.Success)
+            {
+                Debug.Log("launcher模块移除失败或未找到，直接调用Client.Resolve()");
+                Client.Resolve();
             }
         }
 
-        // 新增方法：复制Configs目录下所有文件到Assets/Resources/
-        private static void CopyConfigsToResources()
+        private static void OnPackagesRegistered(PackageRegistrationEventArgs args)
         {
-            try
+            // 移除事件监听器以避免重复调用
+            Events.registeringPackages -= OnPackagesRegistered;
+            Debug.Log("OnPackagesRegistered... 包安装完成，创建配置");
+
+        }
+        
+  
+        public static void CopyDefaultRes()
+        {
+            string sourceGuiPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
+                "Editor Default Resources/GUI");
+            string sourceTexturePath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
+                "Editor Default Resources/Texture");
+            
+            Debug.Log($"[AutoInstall] 开始复制默认资源...");
+            Debug.Log($"[AutoInstall] GUI源目录路径: {sourceGuiPath}");
+            Debug.Log($"[AutoInstall] Texture源目录路径: {sourceTexturePath}");
+            
+            // 确保源目录存在再进行复制操作
+            if (Directory.Exists(sourceGuiPath))
             {
-                string configsPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH, "Editor Default Resources/Config");
-                string resourcesPath = Path.Combine(Application.dataPath, "Resources");
+                string[] guiFiles = Directory.GetFiles(sourceGuiPath, "*.prefab", SearchOption.TopDirectoryOnly);
+                Debug.Log($"[AutoInstall] 在GUI目录中找到 {guiFiles.Length} 个prefab文件");
 
-                if (!Directory.Exists(configsPath))
+                foreach (string guiprefab in guiFiles)
                 {
-                    _progressWindow?.AddLog($"Configs目录不存在，跳过资源复制");
-                    Debug.LogWarning($"Configs目录不存在: {configsPath}");
-                    return;
+                    string fileName = Path.GetFileName(guiprefab);
+                    string aotDestinationPath = Path.Combine(Application.dataPath, "_Resources", "GUI");
+                    
+                    // 确保目标目录存在
+                    Directory.CreateDirectory(aotDestinationPath);
+                    
+                    string destinationFilePath = Path.Combine(aotDestinationPath, fileName);
+                    File.Copy(guiprefab, destinationFilePath, true); // true表示覆盖已存在的文件
+                    Debug.Log($"[AutoInstall] 已复制 prefab: {fileName}");
                 }
 
-                if (!Directory.Exists(resourcesPath))
-                {
-                    Directory.CreateDirectory(resourcesPath);
-                }
-
-                // 只复制特定的配置文件
-                string[] requiredFiles = { "AppConfigures.asset", "AppSettings.asset" };
-                int copiedCount = 0;
-
-                foreach (string fileName in requiredFiles)
-                {
-                    string sourceFilePath = Path.Combine(configsPath, fileName);
-                    string destFilePath = Path.Combine(resourcesPath, fileName);
-
-                    if (File.Exists(sourceFilePath))
-                    {
-                        // 复制文件
-                        File.Copy(sourceFilePath, destFilePath, true); // true表示覆盖已存在的文件
-                        copiedCount++;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"配置文件不存在: {sourceFilePath}");
-                    }
-                }
-
-                _progressWindow?.AddLog($"已复制 {copiedCount} 个配置文件到 Assets/Resources");
-
-                // 刷新Unity资源
-                AssetDatabase.Refresh();
+                _progressWindow?.AddLog($"已复制 {guiFiles.Length} 个prefab");
+                Debug.Log($"[AutoInstall] 成功复制 {guiFiles.Length} 个prefab文件");
             }
-            catch (Exception ex)
+            else
             {
-                _progressWindow?.AddLog($"复制配置文件时出错: {ex.Message}");
-                Debug.LogError($"复制配置文件时出错: {ex.Message}");
+                string logMessage = $"GUI源目录不存在: {sourceGuiPath}";
+                _progressWindow?.AddLog(logMessage);
+                Debug.Log($"[AutoInstall] {logMessage}");
             }
+            
+            // 确保源目录存在再进行复制操作
+            if (Directory.Exists(sourceTexturePath))
+            {
+                string[] textureFiles = Directory.GetFiles(sourceTexturePath, "*.png", SearchOption.TopDirectoryOnly);
+                Debug.Log($"[AutoInstall] 在Texture目录中找到 {textureFiles.Length} 个png文件");
+
+                foreach (string textureFile in textureFiles)
+                {
+                    string fileName = Path.GetFileName(textureFile);
+                    string textureDestinationPath = Path.Combine(Application.dataPath, "_Resources", "Texture");
+                    
+                    // 确保目标目录存在
+                    Directory.CreateDirectory(textureDestinationPath);
+                    
+                    string destinationFilePath = Path.Combine(textureDestinationPath, fileName);
+                    File.Copy(textureFile, destinationFilePath, true); // true表示覆盖已存在的文件
+                    Debug.Log($"[AutoInstall] 已复制 texture: {fileName}");
+                }
+
+                _progressWindow?.AddLog($"已复制 {textureFiles.Length} 个Texture");
+                Debug.Log($"[AutoInstall] 成功复制 {textureFiles.Length} 个texture文件");
+            }
+            else
+            {
+                string logMessage = $"Texture源目录不存在: {sourceTexturePath}";
+                _progressWindow?.AddLog(logMessage);
+                Debug.Log($"[AutoInstall] {logMessage}");
+            }
+            
+            Debug.Log($"[AutoInstall] 复制默认资源完成");
         }
 
     }
-    
-    
+
 }

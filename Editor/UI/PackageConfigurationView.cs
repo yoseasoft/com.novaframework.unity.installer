@@ -37,7 +37,16 @@ namespace NovaFramework.Editor.Installer
         // 跟踪每个包的详情展开状态
         private Dictionary<string, bool> _packageDetailsVisibility = new Dictionary<string, bool>();
         
-        public void DrawView()
+        // 添加一个字段来跟踪是否处于向导模式
+        private bool _isWizardMode = false;
+        
+        // 添加一个方法来设置向导模式
+        public void SetWizardMode(bool isWizardMode)
+        {
+            _isWizardMode = isWizardMode;
+        }
+        
+        public void DrawView(Action onNextStep = null)
         {
             DrawTopPanel();
             
@@ -49,9 +58,28 @@ namespace NovaFramework.Editor.Installer
             DrawRightPanel();
             EditorGUILayout.EndHorizontal();
 
+            // 根据是否处于向导模式决定如何绘制底部面板
             DrawButtomPanel();
         }
-
+        
+        // 新增方法：绘制向导模式下的下一步按钮
+        private void DrawWizardNextButton(Action onNextStep)
+        {
+            EditorGUILayout.Space(30);
+            
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            
+            if (GUILayout.Button("下一步", GUILayout.Width(120), GUILayout.Height(35)))
+            {
+                // 触发下一步事件
+                onNextStep?.Invoke();
+            }
+            
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+        
         private void DrawTopPanel()
         {
             EditorGUILayout.Space(20); // 增加间距
@@ -222,28 +250,29 @@ namespace NovaFramework.Editor.Installer
             EditorGUILayout.Space(30);
             
             EditorGUILayout.BeginHorizontal();
-            
-            GUIStyle updateButtonStyle = RichTextUtils.GetButtonTextOnlyStyle(Color.yellow);
-            if (GUILayout.Button("一键更新所选包(Git)", updateButtonStyle, GUILayout.Height(35)))
+            if (!_isWizardMode)
             {
-                Debug.Log("一键更新所选包(Git)");
-
-                if (IsSamePackages(DataManager.LoadPersistedSelectedPackages(), PackageManager.GetSelectedPackageNames()))
+                GUIStyle updateButtonStyle = RichTextUtils.GetButtonTextOnlyStyle(Color.yellow);
+                if (GUILayout.Button("一键更新所选包(Git)", updateButtonStyle, GUILayout.Height(35)))
                 {
-                    if (EditorUtility.DisplayDialog("确认更新", 
-                            "确定要更新所有选中的包吗？此操作将会从Git仓库拉取最新版本。", 
-                            "确定", "取消"))
+                    Debug.Log("一键更新所选包(Git)");
+
+                    if (IsSamePackages(DataManager.LoadPersistedSelectedPackages(), PackageManager.GetSelectedPackageNames()))
                     {
-                        GitManager.UpdatePackages(PackageManager.GetSelectedPackageObjects());
-                        DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
+                        if (EditorUtility.DisplayDialog("确认更新", 
+                                "确定要更新所有选中的包吗？此操作将会从Git仓库拉取最新版本。", 
+                                "确定", "取消"))
+                        {
+                            GitManager.UpdatePackages(PackageManager.GetSelectedPackageObjects());
+                            DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
+                        }
+                    }
+                    else
+                    {
+                        EditorUtility.DisplayDialog("更新失败", "所选包列表有修改，请先保存选择", "确定");
                     }
                 }
-                else
-                {
-                    EditorUtility.DisplayDialog("更新失败", "所选包列表有修改，请先保存选择", "确定");
-                }
             }
-            
             EditorGUILayout.EndHorizontal();
         }
 

@@ -460,12 +460,19 @@ namespace NovaFramework.Editor.Installer
             // 检查安装是否完成，如果完成则打开配置中心
             if (_isComplete && !_hasError)
             {
-                // 延迟调用以确保当前窗口完全关闭
                 EditorApplication.delayCall += () =>
                 {
-                    Debug.Log("安装完成，即将调用配置中心");
-                    ConfigurationWindow.StartAutoConfiguration();
+                    AutoInstallManager.InvokeAllInstall();
+                    
+                    // 延迟调用以确保当前窗口完全关闭
+                    EditorApplication.delayCall += () =>
+                    {
+                        Debug.Log("安装完成，即将调用配置中心");
+                        ConfigurationWindow.StartAutoConfiguration();
+                    
+                    };
                 };
+               
             }
         }
     }

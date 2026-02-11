@@ -69,6 +69,8 @@ namespace NovaFramework.Editor.Installer
                 // 4. 重置包管理
                 ResetPackages();
                 
+               AutoInstallManager.InvokeAllUninstall();
+                
                 // 5. 刷新Unity
                 AssetDatabase.Refresh();
                 

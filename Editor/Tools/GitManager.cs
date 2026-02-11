@@ -42,11 +42,13 @@ namespace NovaFramework.Editor.Installer
         
         private static void InstallPackageFromGit(PackageObject package, string destinationPath)
         {
-            if (!Directory.Exists(destinationPath))
+            // 如果目标目录已存在，先强制删除
+            if (Directory.Exists(destinationPath))
             {
-                Directory.CreateDirectory(destinationPath);
+                ForceDeleteDirectory(destinationPath);
             }
-            
+
+            Directory.CreateDirectory(destinationPath);
             bool cloneSuccess = GitUtils.CloneRepository(package.gitRepositoryUrl, destinationPath);
             
             if (cloneSuccess)
@@ -66,7 +68,7 @@ namespace NovaFramework.Editor.Installer
         
         public static void UninstallPackage(string oldPkgName)
         {
-            string folderPath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, oldPkgName);
+            string folderPath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, oldPkgName).Replace("\\","/");
             ForceDeleteDirectory(folderPath);
             PackageManifestUtils.RemovePackageFromManifest(oldPkgName);
         }
@@ -87,7 +89,7 @@ namespace NovaFramework.Editor.Installer
                     return;
                 }
                 
-                string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageObject.name);
+                string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageObject.name).Replace("\\","/");
                 
                 InstallPackageFromGit(packageObject, packagePath);
             }
@@ -129,7 +131,7 @@ namespace NovaFramework.Editor.Installer
                     PackageObject packageObject = PackageManager.GetPackageObjectByName(newPkgName);
                     if (packageObject != null && !string.IsNullOrEmpty(packageObject.gitRepositoryUrl))
                     {
-                        string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, newPkgName);
+                        string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, newPkgName).Replace("\\", "/");
                         InstallPackageFromGit(packageObject, packagePath);
                     }
                 }
@@ -253,7 +255,7 @@ namespace NovaFramework.Editor.Installer
         public static void UpdateSinglePackage(string packageName)
         {
             // 获取包的存储路径
-            string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageName);
+            string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageName).Replace("\\", "/");
                     
             if (Directory.Exists(packagePath))
             {

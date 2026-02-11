@@ -30,6 +30,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEditor.PackageManager;
 using UnityEditor.SceneManagement;
+using NovaFramework;
 
 namespace NovaFramework.Editor.Installer
 {
@@ -41,12 +42,14 @@ namespace NovaFramework.Editor.Installer
 
         public static void StartAutoInstall()
         {
-            // 显示进度窗口
+            Logger.Info("[AutoInstall] 开始自动安装流程");
             _progressWindow = AutoInstallProgressWindow.ShowWindow();
             _progressWindow.AddLog("正在初始化安装环境...");
-
             // 延迟执行安装任务，确保窗口先完成渲染
-            EditorApplication.delayCall += DoStartInstall;
+            EditorApplication.delayCall += () =>
+            {
+                DoStartInstall();
+            };
         }
 
         // 重置安装状态，用于重新运行安装流程
@@ -54,11 +57,12 @@ namespace NovaFramework.Editor.Installer
         {
             UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, false);
             UserSettings.SetBool(Constants.NovaFramework_Installer_PACKAGES_INSTALLED_KEY, false);
-            Debug.Log("安装状态已重置，可以重新运行安装流程");
+            Logger.Info("安装状态已重置，可以重新运行安装流程");
         }
 
         private static void DoStartInstall()
         {
+      
             _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.CheckEnvironment);
 
             // 检查是否已经完成全部安装（包括配置）
@@ -84,33 +88,34 @@ namespace NovaFramework.Editor.Installer
 
         private static void InstallRequiredPackages()
         {
+            Logger.Info("[AutoInstall] 开始检查包信息...");
             _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.LoadPackageInfo);
-
+            
             try
             {
                 // 使用PackageManager加载所有包信息
                 PackageManager.LoadData();
 
                 var allPackages = PackageManager.PackageObjectList;
-
+               
                 if (allPackages == null || allPackages.Count == 0)
                 {
                     throw new Exception("无法加载包信息");
                 }
-
+               
                 _progressWindow?.AddLog($"成功加载 {allPackages.Count} 个包信息");
-
+               
                 // 获取已选择的包（包括必需包及其依赖）
                 var selectedPackages = PackageManager.GetSelectedPackageObjects();
-
+               
                 _progressWindow?.AddLog($"已选择 {selectedPackages.Count} 个包待安装");
-
+               
                 // 更新框架设置
                 DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
-
+               
                 // 实际安装包 - 异步方式
                 var packagesList = selectedPackages.Select(p => p.name).ToList();
-
+               
                 if (packagesList.Count > 0)
                 {
                     _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.InstallPackages);
@@ -125,16 +130,16 @@ namespace NovaFramework.Editor.Installer
             catch (Exception ex)
             {
                 _progressWindow?.SetError($"安装插件包时出错: {ex.Message}");
-                Debug.LogError($"安装插件包时出错: {ex.Message}");
+                Logger.Error($"安装插件包时出错: {ex.Message}");
             }
         }
 
         // 异步顺序安装包列表
         private static void InstallPackagesSequentially(List<string> packagesList, int currentIndex)
         {
+           
             if (currentIndex >= packagesList.Count)
             {
-
                 _progressWindow?.AddLog("所有包配置完成...正在刷新资源...");
                 // 直接执行下一步
                 CreateDirectories();
@@ -147,15 +152,19 @@ namespace NovaFramework.Editor.Installer
             // 先更新进度窗口
             _progressWindow?.SetPackageProgress(currentIndex + 1, packagesList.Count, packageName);
 
-            // 直接执行实际安装
-            DoInstallSinglePackage(packagesList, currentIndex, packageName);
+            EditorApplication.delayCall += () =>
+            {
+                // 直接执行实际安装
+                DoInstallSinglePackage(packagesList, currentIndex, packageName);
+            };
+            
         }
 
 
         // 执行单个包的安装
         private static void DoInstallSinglePackage(List<string> packagesList, int currentIndex, string packageName)
         {
-
+            Logger.Info($"[AutoInstall] 开始安装单个包: {packageName}");
             try
             {
                 // 开始安装包，跳过com.novaframework.unity.core.common包安装
@@ -172,24 +181,25 @@ namespace NovaFramework.Editor.Installer
                 PackageObject packageInfo = PackageManager.GetPackageObjectByName(packageName);
                 if (packageInfo == null)
                 {
-                    Debug.LogWarning($"[AutoInstall] 未找到包信息: {packageName}");
                     EditorApplication.delayCall += () =>
                     {
                         InstallPackagesSequentially(packagesList, currentIndex + 1);
                     };
                     return;
                 }
-
+                
+                Logger.Info($"[AutoInstall] 找到包信息: {packageName}, 开始Git安装");
 
                 // 使用标志来跟踪是否回调已完成
                 bool callbackExecuted = false;
 
                 GitManager.InstallPackage(packageInfo, () =>
                 {
+                    Logger.Info($"[AutoInstall] Git安装完成回调: {packageName}");
                     _progressWindow?.AddLog($"  完成: {packageName}");
-
+                
                     callbackExecuted = true;
-
+                
                     // 使用 delayCall 替代之前的队列机制，因为 delayCall 在 Git 操作后应该正常工作
                     EditorApplication.delayCall += () =>
                     {
@@ -197,30 +207,32 @@ namespace NovaFramework.Editor.Installer
                     };
                 });
 
+                
                 // 添加一个计时器来检测回调是否执行，如果没执行则强制继续
                 // 使用 EditorApplication.update 来定期检查回调是否被执行
                 int checkCount = 0;
                 int maxChecks = 100; // 最多检查100次 (约5秒)
-
+               
                 EditorApplication.update += CheckCallbackAndUpdate;
-
+               
                 void CheckCallbackAndUpdate()
                 {
-                    checkCount++;
+                    checkCount++; 
+                   
                     if (callbackExecuted || checkCount >= maxChecks)
                     {
+                        
                         // 停止监听更新事件
                         EditorApplication.update -= CheckCallbackAndUpdate;
-
                         if (!callbackExecuted)
                         {
                             // 如果回调未执行，记录警告并强制执行下一步
-                            Debug.LogWarning($"[AutoInstall] 回调超时，强制执行下一步: {packageName}");
+                            Logger.Warn($"[AutoInstall] 回调超时，强制执行下一步: {packageName}");
                             _progressWindow?.AddLog($"  警告: {packageName} (回调超时，强制继续)");
-
-                            // 强制执行下一步
+                            //强制执行下一步
                             EditorApplication.delayCall += () =>
                             {
+                              
                                 InstallPackagesSequentially(packagesList, currentIndex + 1);
                             };
                         }
@@ -230,9 +242,10 @@ namespace NovaFramework.Editor.Installer
             catch (Exception ex)
             {
                 _progressWindow?.AddLog($"  警告: 配置包 {packageName} 时发生异常: {ex.Message}");
-                Debug.LogError($"[AutoInstall] 配置包 {packageName} 时发生异常: {ex.Message}\n{ex.StackTrace}");
-                // 即使当前包配置失败，也继续配置下一个包
-                EditorApplication.delayCall += () => { InstallPackagesSequentially(packagesList, currentIndex + 1); };
+                 // 即使当前包配置失败，也继续配置下一个包
+                EditorApplication.delayCall += () => { 
+                    InstallPackagesSequentially(packagesList, currentIndex + 1); 
+                };
             }
         }
 
@@ -248,13 +261,13 @@ namespace NovaFramework.Editor.Installer
 
         private static void DoCreateDirectories()
         {
-            Debug.Log("[AutoInstall] DoCreateDirectories called");
+            Logger.Info("[AutoInstall] DoCreateDirectories called");
             try
             {
                 // 获取默认系统变量配置
                 var systemVariables = DataManager.GetDefaultSystemVariables();
 
-                Debug.Log($"[AutoInstall] Retrieved {systemVariables.Count} system variables");
+                Logger.Info($"[AutoInstall] Retrieved {systemVariables.Count} system variables");
 
                 // 准备需要创建的目录列表，避免重复的路径操作
                 var directoriesToCreate = new List<string>();
@@ -294,12 +307,12 @@ namespace NovaFramework.Editor.Installer
                     directoriesToCreate.Add(assetsResourcesPath);
                 }
 
-                Debug.Log($"[AutoInstall] About to create {directoriesToCreate.Count} directories");
+                Logger.Info($"[AutoInstall] About to create {directoriesToCreate.Count} directories");
 
                 // 批量创建所有需要的目录
                 foreach (string dirPath in directoriesToCreate)
                 {
-                    Debug.Log($"[AutoInstall] Creating directory: {dirPath}");
+                    Logger.Info($"[AutoInstall] Creating directory: {dirPath}");
                     Directory.CreateDirectory(dirPath);
                 }
 
@@ -309,7 +322,7 @@ namespace NovaFramework.Editor.Installer
                 DataManager.SaveSystemVariables(systemVariables);
                 _progressWindow?.AddLog("已保存系统变量配置");
 
-                Debug.Log("[AutoInstall] Directory creation completed, moving to next step");
+                Logger.Info("[AutoInstall] Directory creation completed, moving to next step");
 
                 // 延迟继续下一步，让UI有机会更新
                 EditorApplication.delayCall += () => { InstallBasePackage(); };
@@ -317,7 +330,7 @@ namespace NovaFramework.Editor.Installer
             catch (Exception ex)
             {
                 _progressWindow?.SetError($"创建环境目录时出错: {ex.Message}");
-                Debug.LogError($"创建环境目录时出错: {ex.Message}");
+                Logger.Error($"创建环境目录时出错: {ex.Message}");
             }
         }
 
@@ -418,8 +431,6 @@ namespace NovaFramework.Editor.Installer
                 EditorApplication.delayCall += () =>
                 {
                     // 调用所有自定义模块的安装方法
-                    AutoInstallInvoker.InvokeAllInstall();
-
                     GenerateNovaFrameworkConfig();
                 };
             }
@@ -439,7 +450,7 @@ namespace NovaFramework.Editor.Installer
                 return path;
             }
 
-            Debug.LogWarning("在任何可能的路径中都未找到Game.zip文件");
+            Logger.Warn("在任何可能的路径中都未找到Game.zip文件");
             return null;
         }
 
@@ -470,8 +481,7 @@ namespace NovaFramework.Editor.Installer
             catch (Exception ex)
             {
                 _progressWindow?.SetError($"生成框架配置时出错: {ex.Message}");
-                Debug.LogError($"生成框架配置时出错: {ex.Message}");
-                Debug.LogError($"堆栈跟踪: {ex.StackTrace}");
+                Logger.Error($"生成框架配置时出错: {ex.Message}");
             }
         }
 
@@ -499,19 +509,17 @@ namespace NovaFramework.Editor.Installer
                         _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.OpenScene);
 
                         EditorApplication.delayCall += () =>
+
+                        OpenMainScene();
+
+                        // 延迟创建安装完成标记文件
+                        EditorApplication.delayCall += () =>
                         {
+                            UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
+                            _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
+                            // 移除launcher模块
+                            RemoveLauncherModule();
 
-                            OpenMainScene();
-
-                            // 延迟创建安装完成标记文件
-                            EditorApplication.delayCall += () =>
-                            {
-                                UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
-                                _progressWindow?.SetStep(AutoInstallProgressWindow.InstallStep.Complete);
-                                // 移除launcher模块
-                                RemoveLauncherModule();
-
-                            };
                         };
                     };
 
@@ -537,7 +545,7 @@ namespace NovaFramework.Editor.Installer
         // 移除launcher模块
         private static void RemoveLauncherModule()
         {
-            Debug.Log("安装完成移除launcher模块...");
+            Logger.Info("安装完成移除launcher模块...");
 
             // 先尝试移除launcher模块
             Events.registeredPackages += OnPackagesRegistered;
@@ -554,7 +562,7 @@ namespace NovaFramework.Editor.Installer
             // 检查移除结果
             if (removeRequest.Status != StatusCode.Success)
             {
-                Debug.Log("launcher模块移除失败或未找到，直接调用Client.Resolve()");
+                Logger.Info("launcher模块移除失败或未找到，直接调用Client.Resolve()");
                 Client.Resolve();
             }
         }
@@ -563,7 +571,7 @@ namespace NovaFramework.Editor.Installer
         {
             // 移除事件监听器以避免重复调用
             Events.registeringPackages -= OnPackagesRegistered;
-            Debug.Log("OnPackagesRegistered... 包安装完成，创建配置");
+            Logger.Info("OnPackagesRegistered... 包安装完成，创建配置");
 
         }
         
@@ -575,15 +583,11 @@ namespace NovaFramework.Editor.Installer
             string sourceTexturePath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
                 "Editor Default Resources/Texture");
             
-            Debug.Log($"[AutoInstall] 开始复制默认资源...");
-            Debug.Log($"[AutoInstall] GUI源目录路径: {sourceGuiPath}");
-            Debug.Log($"[AutoInstall] Texture源目录路径: {sourceTexturePath}");
-            
-            // 确保源目录存在再进行复制操作
+              // 确保源目录存在再进行复制操作
             if (Directory.Exists(sourceGuiPath))
             {
                 string[] guiFiles = Directory.GetFiles(sourceGuiPath, "*.prefab", SearchOption.TopDirectoryOnly);
-                Debug.Log($"[AutoInstall] 在GUI目录中找到 {guiFiles.Length} 个prefab文件");
+                Logger.Info($"[AutoInstall] 在GUI目录中找到 {guiFiles.Length} 个prefab文件");
 
                 foreach (string guiprefab in guiFiles)
                 {
@@ -595,24 +599,24 @@ namespace NovaFramework.Editor.Installer
                     
                     string destinationFilePath = Path.Combine(aotDestinationPath, fileName);
                     File.Copy(guiprefab, destinationFilePath, true); // true表示覆盖已存在的文件
-                    Debug.Log($"[AutoInstall] 已复制 prefab: {fileName}");
+                    Logger.Info($"[AutoInstall] 已复制 prefab: {fileName}");
                 }
 
                 _progressWindow?.AddLog($"已复制 {guiFiles.Length} 个prefab");
-                Debug.Log($"[AutoInstall] 成功复制 {guiFiles.Length} 个prefab文件");
+                Logger.Info($"[AutoInstall] 成功复制 {guiFiles.Length} 个prefab文件");
             }
             else
             {
                 string logMessage = $"GUI源目录不存在: {sourceGuiPath}";
                 _progressWindow?.AddLog(logMessage);
-                Debug.Log($"[AutoInstall] {logMessage}");
+                Logger.Info($"[AutoInstall] {logMessage}");
             }
             
             // 确保源目录存在再进行复制操作
             if (Directory.Exists(sourceTexturePath))
             {
                 string[] textureFiles = Directory.GetFiles(sourceTexturePath, "*.png", SearchOption.TopDirectoryOnly);
-                Debug.Log($"[AutoInstall] 在Texture目录中找到 {textureFiles.Length} 个png文件");
+                Logger.Info($"[AutoInstall] 在Texture目录中找到 {textureFiles.Length} 个png文件");
 
                 foreach (string textureFile in textureFiles)
                 {
@@ -624,20 +628,189 @@ namespace NovaFramework.Editor.Installer
                     
                     string destinationFilePath = Path.Combine(textureDestinationPath, fileName);
                     File.Copy(textureFile, destinationFilePath, true); // true表示覆盖已存在的文件
-                    Debug.Log($"[AutoInstall] 已复制 texture: {fileName}");
+                    Logger.Info($"[AutoInstall] 已复制 texture: {fileName}");
                 }
 
                 _progressWindow?.AddLog($"已复制 {textureFiles.Length} 个Texture");
-                Debug.Log($"[AutoInstall] 成功复制 {textureFiles.Length} 个texture文件");
+                Logger.Info($"[AutoInstall] 成功复制 {textureFiles.Length} 个texture文件");
             }
             else
             {
                 string logMessage = $"Texture源目录不存在: {sourceTexturePath}";
                 _progressWindow?.AddLog(logMessage);
-                Debug.Log($"[AutoInstall] {logMessage}");
+                Logger.Info($"[AutoInstall] {logMessage}");
             }
             
-            Debug.Log($"[AutoInstall] 复制默认资源完成");
+            Logger.Info($"[AutoInstall] 复制默认资源完成");
+        }
+        
+         /// <summary>
+        /// 调用所有实现了IModuleInstallHandler的类的Install方法
+        /// </summary>
+        public static void InvokeAllInstall()
+        {
+            var interfaceHandlers = GetModuleInstallHandlersFromInterface();
+            
+            Logger.Info($"[AutoInstall] ======== InvokeAllInstall");
+            // 调用接口实现的Install方法
+            foreach (var handler in interfaceHandlers)
+            {
+                try
+                {
+                    Logger.Info($"正在执行模块安装 (接口): {handler.GetType().Name}");
+                    handler.Install(() => {
+                        Logger.Info($"模块安装完成 (接口): {handler.GetType().Name}");
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"执行模块安装失败 {handler.GetType().Name}: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 调用所有实现了IModuleInstallHandler的类的Uninstall方法
+        /// </summary>
+        public static void InvokeAllUninstall()
+        {
+            var interfaceHandlers = GetModuleInstallHandlersFromInterface();
+            
+            // 调用接口实现的Uninstall方法
+            foreach (var handler in interfaceHandlers)
+            {
+                try
+                {
+                    Logger.Info($"正在执行模块卸载 (接口): {handler.GetType().Name}");
+                    handler.Uninstall(() => {
+                        Logger.Info($"模块卸载完成 (接口): {handler.GetType().Name}");
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"执行模块卸载失败 {handler.GetType().Name}: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 获取所有IModuleInstallHandler的实例
+        /// </summary>
+        /// <returns>IModuleInstallHandler实例列表</returns>
+        private static List<InstallationStep> GetModuleInstallHandlersFromInterface()
+        {
+            var handlers = new List<InstallationStep>();
+            
+            try
+            {
+                // 加载仓库清单数据
+                RepoManifest.Instance.LoadData();
+                var packageObjects = RepoManifest.Instance.modules;
+                
+                if (packageObjects == null || packageObjects.Count == 0)    
+                {
+                    Logger.Warn("未找到任何包配置信息");
+                    return handlers;
+                }
+                
+                // 按PID排序包对象
+                var sortedPackages = packageObjects.OrderBy(p => p.pid).ToList();
+                
+                // 在自动安装阶段，只处理必需包(required=true)及其依赖
+                var requiredPackageNames = new HashSet<string>();
+                
+                // 先添加所有必需包
+                foreach (var package in sortedPackages)
+                {
+                    if (package.required)
+                    {
+                        requiredPackageNames.Add(package.name);
+                    }
+                }
+                
+                // 添加必需包的依赖
+                foreach (var packageName in requiredPackageNames.ToList())
+                {
+                    var package = sortedPackages.FirstOrDefault(p => p.name == packageName);
+                    if (package?.dependencies != null)
+                    {
+                        foreach (var dep in package.dependencies)
+                        {
+                            requiredPackageNames.Add(dep);
+                        }
+                    }
+                }
+                
+                foreach (var package in sortedPackages)
+                {
+                    // 检查包是否为必需包或其依赖
+                    if (!requiredPackageNames.Contains(package.name))
+                    {
+                        continue;
+                    }
+                    
+                    // 检查包是否有安装配置
+                    if (package.installationObject?.importModules == null)
+                    {
+                        continue;
+                    }
+                    
+                    // 遍历该包的所有import-strategy配置
+                    foreach (var importModule in package.installationObject.importModules)
+                    {
+                        // 检查installable属性是否为true
+                        if (!importModule.installable)
+                        {
+                            continue;
+                        }
+                        
+                        // 通过name获取程序集
+                        string assemblyName = importModule.name;
+                        if (string.IsNullOrEmpty(assemblyName))
+                        {
+                            continue;
+                        }
+                        
+                        // 查找对应的程序集
+                        var assembly = AppDomain.CurrentDomain.GetAssemblies()
+                            .FirstOrDefault(a => a.GetName().Name == assemblyName);
+                        
+                        if (assembly == null)
+                        {
+                            Logger.Warn($"未找到程序集: {assemblyName}");
+                            continue;
+                        }
+                        
+                        try
+                        {
+                            // 查找该程序集中实现了InstallationStep的类型
+                            var types = assembly.GetTypes()
+                                .Where(x => typeof(InstallationStep).IsAssignableFrom(x) && !x.IsInterface && !x.IsAbstract);
+                            
+                            foreach (var type in types)
+                            {
+                                var instance = Activator.CreateInstance(type) as InstallationStep;
+                                if (instance != null)
+                                {
+                                    handlers.Add(instance);
+                                    Logger.Info($"找到安装处理器: {type.FullName} (来自包: {package.name})");
+                                }
+                            }
+                        }
+                        catch (ReflectionTypeLoadException)
+                        {
+                            Logger.Warn($"无法加载程序集中的类型: {assemblyName}");
+                            continue;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"获取IModuleInstallHandler实例时出错: {ex.Message}");
+            }
+            
+            return handlers;
         }
 
     }

@@ -607,12 +607,6 @@ namespace NovaFramework.Editor.Installer
             Logger.Info("[AutoInstall] 复制默认资源完成");
         }
         
-        //Editor下面的txt文件转成cs文件
-        private static void CopyTxt2CS()
-        {
-            
-        }
-        
         /// <summary>
         /// 通用文件复制方法
         /// </summary>

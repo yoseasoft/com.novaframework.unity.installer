@@ -8,13 +8,9 @@ using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
-    internal static class ExportConfigurationMenu
+    internal static class ExportConfiguraHelper
     {
-        [MenuItem("Tools/导出配置 _F3", false, 1000)]
-        public static void ExportConfiguration()
-        {
-            ExportConfiguration(true); // 菜单导出时选中文件
-        }
+     
         
         public static void ExportConfiguration(bool selectFile = false) // 添加参数控制是否选中文件
         {

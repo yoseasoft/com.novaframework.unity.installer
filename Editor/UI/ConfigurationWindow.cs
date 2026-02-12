@@ -248,7 +248,7 @@ namespace NovaFramework.Editor.Installer
         private void FinishAutoConfiguration()
         {
             // 先导出配置
-            ExportConfigurationMenu.ExportConfiguration();
+            ExportConfiguraHelper.ExportConfiguration();
             Debug.Log("自动配置：完成配置导出");
             
             _showWizardButtons = false; // 隐藏向导按钮

@@ -499,7 +499,7 @@ namespace NovaFramework.Editor.Installer
 
                 EditorApplication.delayCall += () =>
                 {
-                    ExportConfigurationMenu.ExportConfiguration();
+                    ExportConfiguraHelper.ExportConfiguration();
                     _progressWindow?.AddLog("已导出 system_environments.json 配置文件");
 
 
@@ -580,68 +580,86 @@ namespace NovaFramework.Editor.Installer
         {
             string sourceGuiPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
                 "Editor Default Resources/GUI");
+            
             string sourceTexturePath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
                 "Editor Default Resources/Texture");
             
-              // 确保源目录存在再进行复制操作
-            if (Directory.Exists(sourceGuiPath))
-            {
-                string[] guiFiles = Directory.GetFiles(sourceGuiPath, "*.prefab", SearchOption.TopDirectoryOnly);
-                Logger.Info($"[AutoInstall] 在GUI目录中找到 {guiFiles.Length} 个prefab文件");
-
-                foreach (string guiprefab in guiFiles)
-                {
-                    string fileName = Path.GetFileName(guiprefab);
-                    string aotDestinationPath = Path.Combine(Application.dataPath, "_Resources", "GUI");
-                    
-                    // 确保目标目录存在
-                    Directory.CreateDirectory(aotDestinationPath);
-                    
-                    string destinationFilePath = Path.Combine(aotDestinationPath, fileName);
-                    File.Copy(guiprefab, destinationFilePath, true); // true表示覆盖已存在的文件
-                    Logger.Info($"[AutoInstall] 已复制 prefab: {fileName}");
-                }
-
-                _progressWindow?.AddLog($"已复制 {guiFiles.Length} 个prefab");
-                Logger.Info($"[AutoInstall] 成功复制 {guiFiles.Length} 个prefab文件");
-            }
-            else
-            {
-                string logMessage = $"GUI源目录不存在: {sourceGuiPath}";
-                _progressWindow?.AddLog(logMessage);
-                Logger.Info($"[AutoInstall] {logMessage}");
-            }
+            string sourceSettingPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
+                "Editor Default Resources/Resources");
             
+            string sourceTxtCSPath = Path.Combine(Constants.DEFAULT_INSTALLER_ROOT_PATH,
+                "Editor Default Resources/Editor");
+            
+            // 复制GUI资源
+            CopyFiles(sourceGuiPath, Path.Combine(Application.dataPath, "_Resources", "GUI"), "*.prefab", "prefab");
+            
+            // 复制纹理资源
+            CopyFiles(sourceTexturePath, Path.Combine(Application.dataPath, "_Resources", "Texture"), "*.png", "Texture");
+            
+            // 复制默认配置资源
+            CopyFiles(sourceSettingPath, Path.Combine(Application.dataPath, "Resources"), "*.asset", "asset");
+            
+            // 复制Editor下的txt转成cs
+            CopyFiles(sourceTxtCSPath, Path.Combine(Application.dataPath, "Editor"), "*.txt", "txt", true);
+            
+            AssetDatabase.Refresh();
+            
+            Logger.Info("[AutoInstall] 复制默认资源完成");
+        }
+        
+        //Editor下面的txt文件转成cs文件
+        private static void CopyTxt2CS()
+        {
+            
+        }
+        
+        /// <summary>
+        /// 通用文件复制方法
+        /// </summary>
+        /// <param name="sourceDirectory">源目录</param>
+        /// <param name="targetDirectory">目标目录</param>
+        /// <param name="filePattern">文件类型过滤模式，如 "*.prefab"</param>
+        /// <param name="logPrefix">日志前缀</param>
+        private static void CopyFiles(string sourceDirectory, string targetDirectory, string filePattern, string logPrefix, bool isTxt2CS = false)
+        {
+          
             // 确保源目录存在再进行复制操作
-            if (Directory.Exists(sourceTexturePath))
+            if (Directory.Exists(sourceDirectory))
             {
-                string[] textureFiles = Directory.GetFiles(sourceTexturePath, "*.png", SearchOption.TopDirectoryOnly);
-                Logger.Info($"[AutoInstall] 在Texture目录中找到 {textureFiles.Length} 个png文件");
-
-                foreach (string textureFile in textureFiles)
+                string[] files = Directory.GetFiles(sourceDirectory, filePattern, SearchOption.TopDirectoryOnly);
+               
+                foreach (string sourceFile in files)
                 {
-                    string fileName = Path.GetFileName(textureFile);
-                    string textureDestinationPath = Path.Combine(Application.dataPath, "_Resources", "Texture");
+                    string fileName = Path.GetFileName(sourceFile);
                     
                     // 确保目标目录存在
-                    Directory.CreateDirectory(textureDestinationPath);
-                    
-                    string destinationFilePath = Path.Combine(textureDestinationPath, fileName);
-                    File.Copy(textureFile, destinationFilePath, true); // true表示覆盖已存在的文件
-                    Logger.Info($"[AutoInstall] 已复制 texture: {fileName}");
+                    Directory.CreateDirectory(targetDirectory);
+                    string destinationFilePath = Path.Combine(targetDirectory, fileName);
+                    if (isTxt2CS)
+                    {
+                        // 如果是txt转cs的操作，需要修改文件扩展名
+                        string csFileName = Path.ChangeExtension(fileName, ".cs");
+                        string csDestinationFilePath = Path.Combine(targetDirectory, csFileName);
+                        File.Copy(sourceFile, csDestinationFilePath, true); // true表示覆盖已存在的文件
+                        Logger.Info($"[AutoInstall] 已转换并复制 {logPrefix}: {fileName} -> {csFileName}");
+                    }
+                    else
+                    {
+                        File.Copy(sourceFile, destinationFilePath, true); // true表示覆盖已存在的文件
+                        Logger.Info($"[AutoInstall] 已复制 {logPrefix}: {fileName}");
+                    }
                 }
 
-                _progressWindow?.AddLog($"已复制 {textureFiles.Length} 个Texture");
-                Logger.Info($"[AutoInstall] 成功复制 {textureFiles.Length} 个texture文件");
+                _progressWindow?.AddLog($"已复制 {files.Length} 个{logPrefix}");
+                Logger.Info($"[AutoInstall] 成功复制 {files.Length} 个{logPrefix}文件");
             }
             else
             {
-                string logMessage = $"Texture源目录不存在: {sourceTexturePath}";
+                string logMessage = $"{logPrefix}源目录不存在: {sourceDirectory}";
                 _progressWindow?.AddLog(logMessage);
                 Logger.Info($"[AutoInstall] {logMessage}");
+              
             }
-            
-            Logger.Info($"[AutoInstall] 复制默认资源完成");
         }
         
          /// <summary>

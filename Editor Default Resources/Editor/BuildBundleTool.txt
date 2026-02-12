@@ -1,0 +1,25 @@
+using GooAsset.Editor.Build;
+using HybridCLR.Editor.Commands;
+using NovaFramework.Editor;
+using UnityEditor;
+using UnityEngine;
+
+public class BuildBundleTool
+{
+    [MenuItem("Build/build bundle")]
+    public static void PreBuildHandle()
+    {
+        //编译代码
+        AssemblyCompile.CompileDlls();
+        //执行热更GenerateAll
+        PrebuildCommand.GenerateAll();
+        //拷贝AotDll
+        HybridCLREditor.CopyAotDlls();
+        //构建资源
+        BuildExecuter.BuildAllManifests();
+        //首包资源环境配置
+        BuildExecuter.ArrangeBuildInFilesEnvironment();
+        
+        Debug.Log("Finish");
+    }
+}

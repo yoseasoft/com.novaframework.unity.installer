@@ -46,18 +46,25 @@ namespace NovaFramework.Editor.Installer
             ConfigurationWindow.ShowWindow();
         }
         
-        [MenuItem("Tools/检查更新", priority = 4)]
+        [MenuItem("Tools/导出配置 _F3", false, 4)]
+        public static void ExportConfiguration()
+        {
+            ExportConfiguraHelper.ExportConfiguration(true); // 菜单导出时选中文件
+        }
+        
+        [MenuItem("Tools/检查更新", priority = 5)]
         public static void ShowUpdateChecker()
         {
             GitManager.UpdateSinglePackage(Constants.COMMON_PACKAGE_NAME);
             GitManager.UpdateSinglePackage(Constants.INSTALLER_PACKAGE_NAME);
         }
         
-        [MenuItem("Tools/验证环境", priority = 5)]
+        [MenuItem("Tools/验证环境", priority = 6)]
         public static void ValidateEnvironment()
         {
             EnvironmentValidator.ShowValidationResult();
         }
+        
         
     }
 }

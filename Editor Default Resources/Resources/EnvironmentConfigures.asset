@@ -34,7 +34,7 @@ MonoBehaviour:
     - Game
     - Compile
   - name: GameHotfix
-    order: 1103
+    order: 1104
     tags:
     - Game
     - Compile

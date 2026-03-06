@@ -6,7 +6,7 @@ namespace NovaFramework.Editor.Installer
     internal class PackageInstallWindow : EditorWindow
     {
         private static PackageInstallWindow _window;
-        private PackageInstallView _packageView;
+        private PackageConfigurationView _packageView;
 
         public static void ShowWindow()
         {
@@ -19,7 +19,7 @@ namespace NovaFramework.Editor.Installer
         void OnEnable()
         {
             PackageManager.LoadData();
-            _packageView = new PackageInstallView();
+            _packageView = new PackageConfigurationView();
         }
 
         void OnGUI()

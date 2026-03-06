@@ -29,7 +29,7 @@ using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
-    internal class PackageConfigurationView
+    internal class PackageInstallView
     {
         private Vector2 _scrollPosition;
         private Vector2 _selectedPackagesScrollPosition;

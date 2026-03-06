@@ -3,15 +3,15 @@ using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
-    internal class ConfigurationWindow : EditorWindow
+    internal class PackageInstallWindow : EditorWindow
     {
-        private static ConfigurationWindow _window;
-        private PackageConfigurationView _packageView;
+        private static PackageInstallWindow _window;
+        private PackageInstallView _packageView;
 
         public static void ShowWindow()
         {
-            _window = GetWindow<ConfigurationWindow>();
-            _window.titleContent = new GUIContent("框架配置中心");
+            _window = GetWindow<PackageInstallWindow>();
+            _window.titleContent = new GUIContent("包安装中心");
             _window.minSize = new Vector2(800, 700);
             _window.Show();
         }
@@ -19,7 +19,7 @@ namespace NovaFramework.Editor.Installer
         void OnEnable()
         {
             PackageManager.LoadData();
-            _packageView = new PackageConfigurationView();
+            _packageView = new PackageInstallView();
         }
 
         void OnGUI()
@@ -29,7 +29,7 @@ namespace NovaFramework.Editor.Installer
                 fontSize = 18,
                 alignment = TextAnchor.MiddleCenter
             };
-            GUILayout.Label("框架配置中心", titleStyle);
+            GUILayout.Label("包安装中心", titleStyle);
             EditorGUILayout.Space(10);
 
             _packageView.DrawView();

@@ -26,8 +26,6 @@ namespace NovaFramework.Editor.Installer
 {
     internal static class MainMenu
     {
-        
-        [MenuItem("Tools/自动安装 _F8", priority = 2, validate = true)]
         private static bool ValidateAutoInstall()
         {
             // 检查是否已经安装过了，如果已安装则不显示菜单项
@@ -40,10 +38,10 @@ namespace NovaFramework.Editor.Installer
             AutoInstallManager.StartAutoInstall();
         }
         
-        [MenuItem("Tools/配置中心 &_C", priority = 3)]
-        public static void ShowConfigurationCenter()
+        [MenuItem("Tools/包安装中心 &_C", priority = 3)]
+        public static void ShowPackageInstallCenter()
         {
-            ConfigurationWindow.ShowWindow();
+            PackageInstallWindow.ShowWindow();
         }
         
         [MenuItem("Tools/导出配置 _F3", false, 4)]

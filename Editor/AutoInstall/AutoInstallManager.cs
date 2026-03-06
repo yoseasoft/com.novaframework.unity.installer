@@ -73,7 +73,12 @@ namespace NovaFramework.Editor.Installer
                 return;
 
             SessionState.SetBool(Constants.SESSION_KEY_PENDING, false);
-            var packages = DataManager.LoadPersistedSelectedPackages();
+            string packagesStr = SessionState.GetString(Constants.SESSION_KEY_STEP_PACKAGES, "");
+            SessionState.EraseString(Constants.SESSION_KEY_STEP_PACKAGES);
+
+            var packages = string.IsNullOrEmpty(packagesStr)
+                ? new List<string>()
+                : new List<string>(packagesStr.Split(','));
 
             Logger.Info("[AutoInstall] 域重载完成，开始执行 InstallationStep");
 

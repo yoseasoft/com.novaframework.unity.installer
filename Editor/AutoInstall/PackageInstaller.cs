@@ -125,8 +125,9 @@ namespace NovaFramework.Editor.Installer
             addLog(completionMessage);
             Logger.Info($"[AutoInstall] {completionMessage}");
 
-            // 标记待执行，包列表已通过 DataManager.SavePersistedSelectedPackages 持久化
+            // 标记待执行，存入需要执行 InstallationStep 的包名
             SessionState.SetBool(Constants.SESSION_KEY_PENDING, true);
+            SessionState.SetString(Constants.SESSION_KEY_STEP_PACKAGES, string.Join(",", PackagesToInstall));
 
             addLog("正在编译程序集，请稍候...");
             Logger.Info("[AutoInstall] 触发编译，等待域重载后执行 InstallationStep");

@@ -20,9 +20,10 @@
 /// THE SOFTWARE.
 /// -------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
+using System.Linq;
 using NovaFramework.Editor.Manifest;
+using NovaFramework.Editor.Preference;
 using UnityEditor;
 using UnityEngine;
 
@@ -37,47 +38,18 @@ namespace NovaFramework.Editor.Installer
         // 跟踪每个包的详情展开状态
         private Dictionary<string, bool> _packageDetailsVisibility = new Dictionary<string, bool>();
         
-        // 添加一个字段来跟踪是否处于向导模式
-        private bool _isWizardMode = false;
-        
-        // 添加一个方法来设置向导模式
-        public void SetWizardMode(bool isWizardMode)
-        {
-            _isWizardMode = isWizardMode;
-        }
-        
-        public void DrawView(Action onNextStep = null)
+        public void DrawView()
         {
             DrawTopPanel();
-            
-            EditorGUILayout.Space(20); // 增加间距
-            
-            // 使用水平布局将包列表和已选包列表分开
+
+            EditorGUILayout.Space(20);
+
             EditorGUILayout.BeginHorizontal();
             DrawLeftPanel();
             DrawRightPanel();
             EditorGUILayout.EndHorizontal();
 
-            // 根据是否处于向导模式决定如何绘制底部面板
             DrawButtomPanel();
-        }
-        
-        // 新增方法：绘制向导模式下的下一步按钮
-        private void DrawWizardNextButton(Action onNextStep)
-        {
-            EditorGUILayout.Space(30);
-            
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            
-            if (GUILayout.Button("下一步", GUILayout.Width(120), GUILayout.Height(35)))
-            {
-                // 触发下一步事件
-                onNextStep?.Invoke();
-            }
-            
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
         }
         
         private void DrawTopPanel()
@@ -246,31 +218,27 @@ namespace NovaFramework.Editor.Installer
 
         private void DrawButtomPanel()
         {
-            
             EditorGUILayout.Space(30);
-            
-            EditorGUILayout.BeginHorizontal();
-            if (!_isWizardMode)
-            {
-                GUIStyle updateButtonStyle = RichTextUtils.GetButtonTextOnlyStyle(Color.yellow);
-                if (GUILayout.Button("一键更新所选包(Git)", updateButtonStyle, GUILayout.Height(35)))
-                {
-                    Debug.Log("一键更新所选包(Git)");
 
-                    if (IsSamePackages(DataManager.LoadPersistedSelectedPackages(), PackageManager.GetSelectedPackageNames()))
+            EditorGUILayout.BeginHorizontal();
+            GUIStyle updateButtonStyle = RichTextUtils.GetButtonTextOnlyStyle(Color.yellow);
+            if (GUILayout.Button("一键更新所选包(Git)", updateButtonStyle, GUILayout.Height(35)))
+            {
+                Debug.Log("一键更新所选包(Git)");
+
+                if (IsSamePackages(DataManager.LoadPersistedSelectedPackages(), PackageManager.GetSelectedPackageNames()))
+                {
+                    if (EditorUtility.DisplayDialog("确认更新",
+                            "确定要更新所有选中的包吗？此操作将会从Git仓库拉取最新版本。",
+                            "确定", "取消"))
                     {
-                        if (EditorUtility.DisplayDialog("确认更新", 
-                                "确定要更新所有选中的包吗？此操作将会从Git仓库拉取最新版本。", 
-                                "确定", "取消"))
-                        {
-                            GitManager.UpdatePackages(PackageManager.GetSelectedPackageObjects());
-                            DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
-                        }
+                        GitManager.UpdatePackages(PackageManager.GetSelectedPackageObjects());
+                        DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
                     }
-                    else
-                    {
-                        EditorUtility.DisplayDialog("更新失败", "所选包列表有修改，请先保存选择", "确定");
-                    }
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog("更新失败", "所选包列表有修改，请先保存选择", "确定");
                 }
             }
             EditorGUILayout.EndHorizontal();
@@ -357,13 +325,25 @@ namespace NovaFramework.Editor.Installer
                 }
 
                 // 使用EditorApplication.delayCall延迟执行保存操作，确保界面更新
-                UnityEditor.EditorApplication.delayCall += () =>
+                EditorApplication.delayCall += () =>
                 {
-                    GitManager.HandleSelectPackages(DataManager.LoadPersistedSelectedPackages(), PackageManager.GetSelectedPackageNames());
-                    DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
+                    var oldPackages = DataManager.LoadPersistedSelectedPackages();
+                    var newPackages = PackageManager.GetSelectedPackageNames();
+                    var added = newPackages.Where(p => !oldPackages.Contains(p)).ToList();
+
+                    GitManager.HandleSelectPackages(oldPackages, newPackages);
+                    DataManager.SavePersistedSelectedPackages(newPackages);
+
+                    // 有新增包时，标记域重载后执行其 InstallationStep
+                    if (added.Count > 0)
+                    {
+                        SessionState.SetBool(Constants.SESSION_KEY_PENDING, true);
+                        SessionState.SetString(Constants.SESSION_KEY_STEP_PACKAGES, string.Join(",", added));
+                    }
+
                     UnityEditor.PackageManager.Client.Resolve();
                 };
-                
+
                 return true;
             }
             else

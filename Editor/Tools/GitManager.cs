@@ -88,9 +88,18 @@ namespace NovaFramework.Editor.Installer
                     onComplete?.Invoke(); // 即使为空也要调用回调，否则流程会中断
                     return;
                 }
-                
+
+                // 检查模块是否已在Assets下本地存在（开发者模式）
+                string localPath = PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(packageObject.name);
+                if (!string.IsNullOrEmpty(localPath) && !localPath.StartsWith(PersistencePath.LocalInstallPathOfNovaFrameworkRepositoryFolder))
+                {
+                    UnityEngine.Debug.Log($"[GitManager] 模块已在本地存在: {localPath}，跳过Git安装");
+                    onComplete?.Invoke();
+                    return;
+                }
+
                 string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageObject.name).Replace("\\","/");
-                
+
                 InstallPackageFromGit(packageObject, packagePath);
             }
             catch (Exception ex)

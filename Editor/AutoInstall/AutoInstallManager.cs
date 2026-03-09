@@ -87,6 +87,7 @@ namespace NovaFramework.Editor.Installer
                 _progressWindow = AutoInstallProgressWindow.Instance;
                 InstallationStepExecutor.ExecuteAll(packages, AddLog);
                 SetStep(InstallStep.Complete);
+                UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
             };
         }
 

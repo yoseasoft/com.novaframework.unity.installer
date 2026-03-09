@@ -11,7 +11,7 @@ namespace NovaFramework.Editor.Installer
         public static void ShowWindow()
         {
             _window = GetWindow<PackageInstallWindow>();
-            _window.titleContent = new GUIContent("包安装中心");
+            _window.titleContent = new GUIContent("Package安装中心");
             _window.minSize = new Vector2(800, 700);
             _window.Show();
         }

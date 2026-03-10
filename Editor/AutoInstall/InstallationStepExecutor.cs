@@ -13,7 +13,7 @@ namespace NovaFramework.Editor.Installer
         /// <summary>
         /// 执行所有已安装包中的 InstallationStep
         /// </summary>
-        public static void ExecuteAll(List<string> packagesToInstall, Action<string> addLog)
+        public static void ExecuteAllInstallMethod(List<string> packagesToInstall, Action<string> addLog)
         {
             addLog("开始执行安装步骤...");
             Logger.Info("[AutoInstall] 开始从包配置中查找并执行 InstallationStep");
@@ -50,7 +50,7 @@ namespace NovaFramework.Editor.Installer
 
                         foreach (var stepType in stepTypes)
                         {
-                            ExecuteSingle(stepType, module.name, addLog, () =>
+                            ExecuteSingleInstallMethod(stepType, module.name, addLog, () =>
                             {
                                 completedCount++;
                                 if (completedCount >= totalCount)
@@ -99,7 +99,7 @@ namespace NovaFramework.Editor.Installer
             return installableModules;
         }
 
-        private static void ExecuteSingle(Type stepType, string assemblyName, Action<string> addLog, Action onComplete)
+        private static void ExecuteSingleInstallMethod(Type stepType, string assemblyName, Action<string> addLog, Action onComplete)
         {
             try
             {
@@ -127,5 +127,38 @@ namespace NovaFramework.Editor.Installer
                 onComplete?.Invoke();
             }
         }
+        
+        /// <summary>
+        /// 执行指定包中的 InstallationStep.Uninstall
+        /// </summary>
+        public static void ExecuteSingleUninstallMethod(string packageName)
+        {
+            var packageInfo = PackageManager.GetPackageObjectByName(packageName);
+            if (packageInfo?.installationObject?.importModules == null) return;
+
+            foreach (var module in packageInfo.installationObject.importModules)
+            {
+                if (!module.installable) continue;
+
+                var stepTypes = AssemblyUtils.FindAllTypesFromAssembly<InstallationStep>(module.name, true);
+                foreach (var stepType in stepTypes)
+                {
+                    try
+                    {
+                        var instance = Activator.CreateInstance(stepType) as InstallationStep;
+                        if (instance != null)
+                        {
+                            Logger.Info($"[AutoInstall] 执行 Uninstall: {stepType.Name} (来自包: {packageName})");
+                            instance.Uninstall();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"[AutoInstall] 执行 Uninstall 失败: {stepType.Name}, 错误: {ex.Message}");
+                    }
+                }
+            }
+        }
+
     }
 }

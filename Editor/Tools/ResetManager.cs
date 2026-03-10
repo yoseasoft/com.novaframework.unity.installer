@@ -58,13 +58,13 @@ namespace NovaFramework.Editor.Installer
             try
             {
                 // 1. 清除UserSettings中的配置
-                ClearUserSettings();
+                //ClearUserSettings();
                 
                 // 2. 删除配置文件
                 DeleteConfigFiles();
                 
                 // 3. 删除目录
-                DeleteCreatedDirectories();
+                //DeleteCreatedDirectories();
                 
                 // 4. 重置包管理
                 ResetPackages();
@@ -128,19 +128,19 @@ namespace NovaFramework.Editor.Installer
         
         private static void DeleteConfigFiles()
         {
-            string[] configFiles = {
-                Constants.SYSTEM_ENVIRONMENTS_PATH,  // 使用实际的配置文件路径
-            };
-
-            foreach (string configFile in configFiles)
-            {
-                string fullPath = Path.Combine(Directory.GetParent(Application.dataPath).ToString(), configFile);
-                if (File.Exists(fullPath))
-                {
-                    File.Delete(fullPath);
-                    Debug.Log($"已删除配置文件: {fullPath}");
-                }
-            }
+            // string[] configFiles = {
+            //     Constants.SYSTEM_ENVIRONMENTS_PATH,  // 使用实际的配置文件路径
+            // };
+            //
+            // foreach (string configFile in configFiles)
+            // {
+            //     string fullPath = Path.Combine(Directory.GetParent(Application.dataPath).ToString(), configFile);
+            //     if (File.Exists(fullPath))
+            //     {
+            //         File.Delete(fullPath);
+            //         Debug.Log($"已删除配置文件: {fullPath}");
+            //     }
+            // }
             
             UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, false);
            
@@ -186,36 +186,36 @@ namespace NovaFramework.Editor.Installer
             
             // 特别处理AOT_LIBRARY_PATH和LINK_LIBRARY_PATH目录
             // 首先尝试从现有配置加载（如果存在）
-            var systemVariables = new Dictionary<string, string>();
-            if (File.Exists(Constants.SYSTEM_ENVIRONMENTS_PATH))
-            {
-                var envConfig = DataManager.LoadSystemEnvironmentsConfig();
-                if (envConfig.variables != null)
-                {
-                    foreach (var variable in envConfig.variables)
-                    {
-                        systemVariables[variable.key] = variable.value;
-                    }
-                }
-            }
-            else
-            {
-                // 如果配置文件不存在，使用默认配置
-                systemVariables = DataManager.GetDefaultSystemVariables();
-            }
-            
-            if (systemVariables.ContainsKey("SCRIPT_FILE_PATH"))
-            {
-                string aotPath = Path.Combine(projectRoot, systemVariables["SCRIPT_FILE_PATH"].Replace("/", Path.DirectorySeparatorChar.ToString()));
-                // 再次进行安全检查
-                if (IsSafeToDelete(aotPath, projectRoot))
-                {
-                    if (Directory.Exists(aotPath))
-                    {
-                        Directory.Delete(aotPath, true);
-                    }
-                }
-            }
+            // var systemVariables = new Dictionary<string, string>();
+            // if (File.Exists(Constants.SYSTEM_ENVIRONMENTS_PATH))
+            // {
+            //     var envConfig = DataManager.LoadSystemEnvironmentsConfig();
+            //     if (envConfig.variables != null)
+            //     {
+            //         foreach (var variable in envConfig.variables)
+            //         {
+            //             systemVariables[variable.key] = variable.value;
+            //         }
+            //     }
+            // }
+            // else
+            // {
+            //     // 如果配置文件不存在，使用默认配置
+            //     systemVariables = DataManager.GetDefaultSystemVariables();
+            // }
+            //
+            // if (systemVariables.ContainsKey("SCRIPT_FILE_PATH"))
+            // {
+            //     string aotPath = Path.Combine(projectRoot, systemVariables["SCRIPT_FILE_PATH"].Replace("/", Path.DirectorySeparatorChar.ToString()));
+            //     // 再次进行安全检查
+            //     if (IsSafeToDelete(aotPath, projectRoot))
+            //     {
+            //         if (Directory.Exists(aotPath))
+            //         {
+            //             Directory.Delete(aotPath, true);
+            //         }
+            //     }
+            // }
             
            
         }
@@ -223,10 +223,10 @@ namespace NovaFramework.Editor.Installer
         private static void ClearUserSettings()
         {
             // 清除UserSettings中的配置
-            UserSettings.SetString(Constants.NovaFramework_Installer_DIRECTORY_CONFIG_KEY, null);
+            //UserSettings.SetString(Constants.NovaFramework_Installer_DIRECTORY_CONFIG_KEY, null);
             // 对于SetObject，传递空列表而不是null以避免序列化错误
-            UserSettings.SetObject(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY,new object());
-            Debug.Log("已清除UserSettings中的配置");
+            //UserSettings.SetObject(Constants.NovaFramework_Installer_ASSEMBLY_CONFIG_KEY,new object());
+            //Debug.Log("已清除UserSettings中的配置");
         }
         
         private static void ResetPackages()

@@ -68,6 +68,9 @@ namespace NovaFramework.Editor.Installer
         
         public static void UninstallPackage(string oldPkgName)
         {
+            // 先执行该包的 InstallationStep.Uninstall
+            InstallationStepExecutor.ExecuteSingleUninstallMethod(oldPkgName);
+            
             string folderPath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, oldPkgName).Replace("\\","/");
             ForceDeleteDirectory(folderPath);
             PackageManifestUtils.RemovePackageFromManifest(oldPkgName);
@@ -93,7 +96,8 @@ namespace NovaFramework.Editor.Installer
                 string localPath = PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(packageObject.name);
                 if (!string.IsNullOrEmpty(localPath) && !localPath.StartsWith(PersistencePath.LocalInstallPathOfNovaFrameworkRepositoryFolder))
                 {
-                    Logger.Warn($"[GitManager] 模块已在本地存在: {localPath}，跳过Git安装");
+                    Logger.Warn($"[GitManager] 模块已在本地存在: {localPath}，跳过Git安装，直接执行InstallationStep");
+                    InstallationStepExecutor.ExecuteAllInstallMethod(new List<string> { packageObject.name }, msg => Logger.Info(msg));
                     onComplete?.Invoke();
                     return;
                 }
@@ -139,7 +143,16 @@ namespace NovaFramework.Editor.Installer
                     // 在新列表中存在但不在旧列表中的包需要被安装
                     PackageObject packageObject = PackageManager.GetPackageObjectByName(newPkgName);
                     if (packageObject != null && !string.IsNullOrEmpty(packageObject.gitRepositoryUrl))
-                    {
+                    { 
+                        // 检查模块是否已在Assets下本地存在（开发者模式），如果是则跳过Git安装
+                        string localPath = PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(newPkgName);
+                        if (!string.IsNullOrEmpty(localPath) && !localPath.StartsWith(PersistencePath.LocalInstallPathOfNovaFrameworkRepositoryFolder))
+                        {
+                            Logger.Warn($"[GitManager] 模块已在本地存在: {localPath}，跳过Git安装，直接执行InstallationStep");
+                            InstallationStepExecutor.ExecuteAllInstallMethod(new List<string> { newPkgName }, msg => Logger.Info(msg));
+                            continue;
+                        }
+
                         string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, newPkgName).Replace("\\", "/");
                         InstallPackageFromGit(packageObject, packagePath);
                     }

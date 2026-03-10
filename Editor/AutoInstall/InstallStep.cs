@@ -8,6 +8,7 @@ namespace NovaFramework.Editor.Installer
         None,
         CheckEnvironment,    // 检查环境
         InstallPackages,     // 安装包
+        CreateBaseProject,   // 创建基础项目
         OpenScene,           // 打开场景
         Complete             // 完成
     }

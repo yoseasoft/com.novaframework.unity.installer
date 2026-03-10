@@ -113,7 +113,7 @@ namespace NovaFramework.Editor.Installer
                     {
                         Logger.Info($"[AutoInstall] InstallationStep 完成: {stepType.Name}");
                         onComplete?.Invoke();
-                    });
+                    }, addLog);
                 }
                 else
                 {

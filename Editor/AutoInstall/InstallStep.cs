@@ -3,7 +3,7 @@ namespace NovaFramework.Editor.Installer
     /// <summary>
     /// 安装步骤枚举
     /// </summary>
-    public enum InstallStep
+    internal enum InstallStep
     {
         None,
         CheckEnvironment,    // 检查环境

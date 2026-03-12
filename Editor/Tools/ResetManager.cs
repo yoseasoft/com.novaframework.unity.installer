@@ -25,6 +25,7 @@ using System.Collections.Generic;
 using System.IO;
 using NovaFramework.Editor.Manifest;
 using UnityEditor;
+using UnityEditor.PackageManager;
 using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
@@ -55,21 +56,12 @@ namespace NovaFramework.Editor.Installer
 
         public static void PerformReset()
         {
-            try
-            {
-                ResetPackages();
+            ResetPackages();
+            AssetDatabase.Refresh();
+            Client.Resolve();
                 
-                // 5. 刷新Unity
-                AssetDatabase.Refresh();
-                
-                // 完成
-                EditorUtility.DisplayDialog("重置完成", "框架安装已重置，所有相关文件和配置已被删除。", "确定");
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"重置过程中出现错误: {e.Message}");
-                EditorUtility.DisplayDialog("错误", $"重置过程中出现错误: {e.Message}", "确定");
-            }
+            // 完成
+            EditorUtility.DisplayDialog("重置完成", "框架安装已重置，所有相关文件和配置已被删除。", "确定");
         }
 
         // 安全检查方法，确保要删除的路径在项目范围内且不是危险路径

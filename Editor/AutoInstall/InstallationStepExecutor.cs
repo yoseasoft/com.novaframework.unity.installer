@@ -109,11 +109,19 @@ namespace NovaFramework.Editor.Installer
                     Logger.Info($"[AutoInstall] 执行 InstallationStep: {stepType.Name} (来自程序集: {assemblyName})");
                     addLog($"  执行: {stepType.Name}");
 
-                    instance.Install(() =>
-                    {
-                        Logger.Info($"[AutoInstall] InstallationStep 完成: {stepType.Name}");
-                        onComplete?.Invoke();
-                    }, addLog);
+                    instance.Install(
+                        () => { addLog($"  {stepType.Name} 执行中..."); },
+                        () =>
+                        {
+                            Logger.Info($"[AutoInstall] InstallationStep 完成: {stepType.Name}");
+                            onComplete?.Invoke();
+                        },
+                        () =>
+                        {
+                            Logger.Error($"[AutoInstall] InstallationStep 出错: {stepType.Name}");
+                            onComplete?.Invoke();
+                        },
+                        addLog);
                 }
                 else
                 {
@@ -149,7 +157,10 @@ namespace NovaFramework.Editor.Installer
                         if (instance != null)
                         {
                             Logger.Info($"[AutoInstall] 执行 Uninstall: {stepType.Name} (来自包: {packageName})");
-                            instance.Uninstall();
+                            instance.Uninstall(
+                                () => { Logger.Info($"[AutoInstall] Uninstall 执行中: {stepType.Name}"); },
+                                () => { Logger.Info($"[AutoInstall] Uninstall 完成: {stepType.Name}"); },
+                                () => { Logger.Error($"[AutoInstall] Uninstall 出错: {stepType.Name}"); });
                         }
                     }
                     catch (Exception ex)

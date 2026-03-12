@@ -45,17 +45,11 @@ namespace NovaFramework.Editor.Installer
             PackageInstallWindow.ShowWindow();
         }
         
-        [MenuItem("Tools/配置中心 _F2", priority = 4)]
+        [MenuItem("Tools/配置中心 _F3", priority = 4)]
         public static void ShowConfigurationCenter()
         {
             ConfigurationCenterWindow.ShowWindow();
         }
-
-        // [MenuItem("Tools/导出配置 _F3", false, 5)]
-        // public static void ExportConfiguration()
-        // {
-        //     ExportConfiguraHelper.ExportConfiguration(true); // 菜单导出时选中文件
-        // }
         
         [MenuItem("Tools/检查更新", priority = 5)]
         public static void ShowUpdateChecker()

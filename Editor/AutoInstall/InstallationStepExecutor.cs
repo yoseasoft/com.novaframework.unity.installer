@@ -107,21 +107,19 @@ namespace NovaFramework.Editor.Installer
                 if (instance != null)
                 {
                     Logger.Info($"[AutoInstall] 执行 InstallationStep: {stepType.Name} (来自程序集: {assemblyName})");
-                    addLog($"  执行: {stepType.Name}");
+                    addLog($"{assemblyName} 包初始化开始");
 
                     instance.Install(
-                        () => { addLog($"  {stepType.Name} 执行中..."); },
                         () =>
                         {
-                            Logger.Info($"[AutoInstall] InstallationStep 完成: {stepType.Name}");
+                            addLog($"{assemblyName} 包初始化完成");
                             onComplete?.Invoke();
                         },
                         () =>
                         {
-                            Logger.Error($"[AutoInstall] InstallationStep 出错: {stepType.Name}");
+                            Logger.Error($"{assemblyName} 包初始化失败");
                             onComplete?.Invoke();
-                        },
-                        addLog);
+                        });
                 }
                 else
                 {
@@ -151,21 +149,19 @@ namespace NovaFramework.Editor.Installer
                 var stepTypes = AssemblyUtils.FindAllTypesFromAssembly<InstallationStep>(module.name, true);
                 foreach (var stepType in stepTypes)
                 {
-                    try
+                    var instance = Activator.CreateInstance(stepType) as InstallationStep;
+                    if (instance != null)
                     {
-                        var instance = Activator.CreateInstance(stepType) as InstallationStep;
-                        if (instance != null)
-                        {
-                            Logger.Info($"[AutoInstall] 执行 Uninstall: {stepType.Name} (来自包: {packageName})");
-                            instance.Uninstall(
-                                () => { Logger.Info($"[AutoInstall] Uninstall 执行中: {stepType.Name}"); },
-                                () => { Logger.Info($"[AutoInstall] Uninstall 完成: {stepType.Name}"); },
-                                () => { Logger.Error($"[AutoInstall] Uninstall 出错: {stepType.Name}"); });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"[AutoInstall] 执行 Uninstall 失败: {stepType.Name}, 错误: {ex.Message}");
+                        Logger.Info($"{module.name} 包卸载开始");
+                        instance.Uninstall(
+                            () =>
+                            {
+                                Logger.Info($"{module.name} 包卸载完成");
+                            },
+                            () =>
+                            {
+                                Logger.Error($"{module.name} 包卸载失败");
+                            });
                     }
                 }
             }

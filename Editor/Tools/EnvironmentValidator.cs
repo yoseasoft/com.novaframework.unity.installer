@@ -294,7 +294,9 @@ namespace NovaFramework.Editor.Installer
             try
             {
                 // 获取系统变量配置
-                var systemVariables = DataManager.LoadSystemVariables();
+                // var systemVariables = DataManager.LoadSystemVariables();
+                //todo
+                var systemVariables = new Dictionary<string, string>();
                 
                 string aotLibraryPath = "Assets/_Resources/Aot/Windows"; // 默认路径
                 

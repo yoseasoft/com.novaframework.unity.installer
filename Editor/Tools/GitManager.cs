@@ -62,12 +62,15 @@ namespace NovaFramework.Editor.Installer
             }
             else
             {
-                UnityEngine.Debug.LogError($"[GitManager] 从Git仓库安装失败: {package.gitRepositoryUrl}");
+                Logger.Error($"[GitManager] 从Git仓库安装失败: {package.gitRepositoryUrl}");
             }
         }
         
         public static void UninstallPackage(string oldPkgName)
         {
+            // 先执行该包的 InstallationStep.Uninstall
+            InstallationStepExecutor.ExecuteSingleUninstallMethod(oldPkgName);
+            
             string folderPath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, oldPkgName).Replace("\\","/");
             ForceDeleteDirectory(folderPath);
             PackageManifestUtils.RemovePackageFromManifest(oldPkgName);
@@ -84,18 +87,28 @@ namespace NovaFramework.Editor.Installer
             {
                 if (packageObject == null)
                 {
-                    UnityEngine.Debug.LogError("[GitManager] InstallPackage: packageObject 为 null");
+                    Logger.Error("[GitManager] InstallPackage: packageObject 为 null");
                     onComplete?.Invoke(); // 即使为空也要调用回调，否则流程会中断
                     return;
                 }
-                
+
+                // 检查模块是否已在Assets下本地存在（开发者模式）
+                string localPath = PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(packageObject.name);
+                if (!string.IsNullOrEmpty(localPath) && !localPath.StartsWith(PersistencePath.LocalInstallPathOfNovaFrameworkRepositoryFolder))
+                {
+                    Logger.Warn($"[GitManager] 模块已在本地存在: {localPath}，跳过Git安装，直接执行InstallationStep");
+                    InstallationStepExecutor.ExecuteAllInstallMethod(new List<string> { packageObject.name }, msg => Logger.Info(msg));
+                    onComplete?.Invoke();
+                    return;
+                }
+
                 string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageObject.name).Replace("\\","/");
-                
+
                 InstallPackageFromGit(packageObject, packagePath);
             }
             catch (Exception ex)
             {
-                UnityEngine.Debug.LogError($"[GitManager] InstallPackage 异常: {ex.Message}\n{ex.StackTrace}");
+                Logger.Error($"[GitManager] InstallPackage 异常: {ex.Message}\n{ex.StackTrace}");
             }
             
             // 确保回调始终被调用
@@ -130,7 +143,16 @@ namespace NovaFramework.Editor.Installer
                     // 在新列表中存在但不在旧列表中的包需要被安装
                     PackageObject packageObject = PackageManager.GetPackageObjectByName(newPkgName);
                     if (packageObject != null && !string.IsNullOrEmpty(packageObject.gitRepositoryUrl))
-                    {
+                    { 
+                        // 检查模块是否已在Assets下本地存在（开发者模式），如果是则跳过Git安装
+                        string localPath = PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(newPkgName);
+                        if (!string.IsNullOrEmpty(localPath) && !localPath.StartsWith(PersistencePath.LocalInstallPathOfNovaFrameworkRepositoryFolder))
+                        {
+                            Logger.Warn($"[GitManager] 模块已在本地存在: {localPath}，跳过Git安装，直接执行InstallationStep");
+                            InstallationStepExecutor.ExecuteAllInstallMethod(new List<string> { newPkgName }, msg => Logger.Info(msg));
+                            continue;
+                        }
+
                         string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, newPkgName).Replace("\\", "/");
                         InstallPackageFromGit(packageObject, packagePath);
                     }
@@ -187,8 +209,8 @@ namespace NovaFramework.Editor.Installer
             }
             catch (Exception ex)
             {
-                Debug.LogError($"删除目录失败：{ex.Message}\n{ex.StackTrace}");
-                Debug.LogError("请关闭Git/VS/Unity相关进程后重试");
+                Logger.Error($"删除目录失败：{ex.Message}\n{ex.StackTrace}");
+                Logger.Error("请关闭Git/VS/Unity相关进程后重试");
             }
         }
 
@@ -262,12 +284,12 @@ namespace NovaFramework.Editor.Installer
                 // 如果包已存在，使用pull更新
                 if (!GitUtils.PullRepository(packagePath))
                 {
-                    Debug.LogError($"包 {packageName} 更新失败");
+                    Logger.Error($"包 {packageName} 更新失败");
                 }
             }
             else
             {
-                Debug.LogError($"包 {packageName} 不存在，请先安装");
+                Logger.Error($"包 {packageName} 不存在，请先安装");
             }
         }
         

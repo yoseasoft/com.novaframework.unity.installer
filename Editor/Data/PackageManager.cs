@@ -53,7 +53,7 @@ namespace NovaFramework.Editor.Installer
             _systemPathInfos = RepoManifest.Instance.localPaths;
             _packageObjectList = RepoManifest.Instance.modules;
             
-            // 进一步处理xml的package数据，
+            // 进一步处理xml的package数据
             foreach (var pkg in _packageObjectList)
             {
                 if (pkg.required)

@@ -35,13 +35,23 @@ namespace NovaFramework.Editor.Installer
         /// 安装模块的本地包名
         /// </summary>
         public const string LocalPackageNameOfInstallerModule = @"com.novaframework.unity.installer";
+        public const string LocalPackageNameOfCommonModule = PersistencePath.LocalPackageNameOfCommonModule;
 
-        // 默认资源路径
+        // 默认installer包路径
         public static string DEFAULT_INSTALLER_ROOT_PATH
         {
             get
             {
                 return PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(LocalPackageNameOfInstallerModule);
+            }
+        }
+        
+        // 默认common包路径
+        public static string DEFAULT_COMMON_ROOT_PATH
+        {
+            get
+            {
+                return PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(LocalPackageNameOfCommonModule);
             }
         }
         
@@ -71,8 +81,5 @@ namespace NovaFramework.Editor.Installer
         public const string SESSION_KEY_PENDING = "NovaFramework.AutoInstall.Pending";
         public const string SESSION_KEY_STEP_PACKAGES = "NovaFramework.AutoInstall.StepPackages";
         
-        //用于git更新的包名
-        public const string INSTALLER_PACKAGE_NAME = LocalPackageNameOfInstallerModule;
-        public const string COMMON_PACKAGE_NAME = PersistencePath.LocalPackageNameOfCommonModule;
     } 
 }

@@ -26,10 +26,12 @@ namespace NovaFramework.Editor.Installer
         {
             try
             {
+                addLog($"common和installer包待安装");
                 var selectedPackages = PackageManager.GetSelectedPackageObjects();
-                addLog($"已选择 {selectedPackages.Count} 个包待安装");
-
-                var packagesList = selectedPackages.Select(p => p.name).ToList();
+                var packagesList = selectedPackages
+                    .Select(p => p.name)
+                    .Where(name => name == Constants.LocalPackageNameOfCommonModule || name == Constants.LocalPackageNameOfInstallerModule)
+                    .ToList();
 
                 if (packagesList.Count > 0)
                 {
@@ -52,7 +54,7 @@ namespace NovaFramework.Editor.Installer
             PackagesToInstall = new List<string>();
             foreach (var packageName in packagesList)
             {
-                if (packageName != Constants.COMMON_PACKAGE_NAME)
+                if (packageName != Constants.LocalPackageNameOfCommonModule)
                 {
                     PackageObject packageInfo = PackageManager.GetPackageObjectByName(packageName);
                     if (packageInfo != null)
@@ -79,7 +81,7 @@ namespace NovaFramework.Editor.Installer
                 InstallSinglePackage(packageName, addLog);
             }
 
-            DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
+            //DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
             RefreshProject(addLog);
         }
 
@@ -126,14 +128,14 @@ namespace NovaFramework.Editor.Installer
             Logger.Info($"[AutoInstall] {completionMessage}");
 
             // 标记待执行，存入需要执行 InstallationStep 的包名
-            SessionState.SetBool(Constants.SESSION_KEY_PENDING, true);
-            SessionState.SetString(Constants.SESSION_KEY_STEP_PACKAGES, string.Join(",", PackagesToInstall));
+            //SessionState.SetBool(Constants.SESSION_KEY_PENDING, true);
+            //SessionState.SetString(Constants.SESSION_KEY_STEP_PACKAGES, string.Join(",", PackagesToInstall));
 
-            addLog("正在编译程序集，请稍候...");
-            Logger.Info("[AutoInstall] 触发编译，等待域重载后执行 InstallationStep");
+            //addLog("正在编译程序集，请稍候...");
+            //Logger.Info("[AutoInstall] 触发编译，等待域重载后执行 InstallationStep");
 
-            AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
-            CompilationPipeline.RequestScriptCompilation();
+            //AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+            //CompilationPipeline.RequestScriptCompilation();
         }
     }
 }

@@ -75,8 +75,9 @@ namespace NovaFramework.Editor.Installer
             try
             {
                 // 获取当前已选择的包
-                var selectedPackageNames = DataManager.LoadPersistedSelectedPackages();
-
+                //var selectedPackageNames = DataManager.LoadPersistedSelectedPackages();
+                var selectedPackageNames = new List<string>();
+                
                 // 检查是否有已选中的包
                 if (selectedPackageNames.Count > 0)
                 {

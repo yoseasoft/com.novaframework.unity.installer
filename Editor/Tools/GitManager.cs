@@ -69,7 +69,7 @@ namespace NovaFramework.Editor.Installer
         public static void UninstallPackage(string oldPkgName)
         {
             // 先执行该包的 InstallationStep.Uninstall
-            InstallationStepExecutor.ExecuteSingleUninstallMethod(oldPkgName);
+            //InstallationStepExecutor.ExecuteSingleUninstallMethod(oldPkgName);
             
             string folderPath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, oldPkgName).Replace("\\","/");
             ForceDeleteDirectory(folderPath);

@@ -20,7 +20,9 @@
 /// THE SOFTWARE.
 /// -------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.IO;
 using NovaFramework.Editor.Manifest;
 using UnityEngine;
 
@@ -40,6 +42,8 @@ namespace NovaFramework.Editor.Installer
         public static List<LocalPathObject> SystemPathInfos => _systemPathInfos;
         public static List<PackageObject> PackageObjectList => _packageObjectList;
         
+        private static string _selectedPackagesTxtPath = Path.Combine(Application.dataPath, "/../NovaFrameworkData", "selected_packages.txt").Replace("\\", "/");
+        
         static PackageManager()
         {
             // 初始化时加载配置文件
@@ -48,6 +52,9 @@ namespace NovaFramework.Editor.Installer
         
         public static void LoadData()
         {
+            // 清空之前的选择状态，确保从文件重新加载
+            _selectedPackageSet.Clear();
+            
             RepoManifest.Instance.LoadData();
             
             _systemPathInfos = RepoManifest.Instance.localPaths;
@@ -73,8 +80,8 @@ namespace NovaFramework.Editor.Installer
                 }
             }
             
-            //同步持久化数据
-            List<string> persistedPackageNames = DataManager.LoadPersistedSelectedPackages();
+            //同步已经配置的记录
+            List<string> persistedPackageNames = LoadSelectedPackagesTxt();
             if (persistedPackageNames != null)
             {
                 foreach (var pkg in _packageObjectList)
@@ -182,6 +189,40 @@ namespace NovaFramework.Editor.Installer
             }
 
             return recursivelyDependencies;
+        }
+        
+        private static List<string> LoadSelectedPackagesTxt()
+        {
+            if (!File.Exists(_selectedPackagesTxtPath))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                string content = File.ReadAllText(_selectedPackagesTxtPath).Trim();
+                if (string.IsNullOrEmpty(content))
+                {
+                    return new List<string>();
+                }
+
+                var lines = content.Split('\n');
+                var result = new List<string>();
+                foreach (var line in lines)
+                {
+                    string trimmed = line.Trim();
+                    if (!string.IsNullOrEmpty(trimmed))
+                    {
+                        result.Add(trimmed);
+                    }
+                }
+                return result;
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"读取包配置列表失败: {e.Message}");
+                return new List<string>();
+            }
         }
     }
 }

@@ -20,7 +20,13 @@
 /// THE SOFTWARE.
 /// -------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using NovaFramework.Editor.Manifest;
 using UnityEditor;
+using UnityEditor.Compilation;
+using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
 {
@@ -45,31 +51,23 @@ namespace NovaFramework.Editor.Installer
             PackageInstallWindow.ShowWindow();
         }
         
-        [MenuItem("Tools/配置中心 _F2", priority = 4)]
+        [MenuItem("Tools/Package一键安装", priority = 3)]
+        public static void OneClickInstallPackages()
+        {
+            PackageManager.OneClickInstallPackages();
+        }
+        
+        [MenuItem("Tools/配置中心 _F3", priority = 4)]
         public static void ShowConfigurationCenter()
         {
             ConfigurationCenterWindow.ShowWindow();
         }
-
-        // [MenuItem("Tools/导出配置 _F3", false, 5)]
-        // public static void ExportConfiguration()
-        // {
-        //     ExportConfiguraHelper.ExportConfiguration(true); // 菜单导出时选中文件
-        // }
         
         [MenuItem("Tools/检查更新", priority = 5)]
         public static void ShowUpdateChecker()
         {
-            GitManager.UpdateSinglePackage(Constants.COMMON_PACKAGE_NAME);
-            GitManager.UpdateSinglePackage(Constants.INSTALLER_PACKAGE_NAME);
+            GitManager.UpdateSinglePackage(Constants.LocalPackageNameOfCommonModule);
+            GitManager.UpdateSinglePackage(Constants.LocalPackageNameOfInstallerModule);
         }
-        
-        [MenuItem("Tools/验证环境", priority = 6)]
-        public static void ValidateEnvironment()
-        {
-            EnvironmentValidator.ShowValidationResult();
-        }
-        
-        
     }
 }

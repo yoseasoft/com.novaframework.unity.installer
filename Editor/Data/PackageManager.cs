@@ -20,8 +20,13 @@
 /// THE SOFTWARE.
 /// -------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using NovaFramework.Editor.Manifest;
+using UnityEditor;
+using UnityEditor.Compilation;
 using UnityEngine;
 
 namespace NovaFramework.Editor.Installer
@@ -40,6 +45,8 @@ namespace NovaFramework.Editor.Installer
         public static List<LocalPathObject> SystemPathInfos => _systemPathInfos;
         public static List<PackageObject> PackageObjectList => _packageObjectList;
         
+        private static string _selectedPackagesTxtPath = Path.Combine(Application.dataPath, "../NovaFrameworkData", "selected_packages.txt").Replace("\\", "/");
+        
         static PackageManager()
         {
             // 初始化时加载配置文件
@@ -48,6 +55,9 @@ namespace NovaFramework.Editor.Installer
         
         public static void LoadData()
         {
+            // 清空之前的选择状态，确保从文件重新加载
+            _selectedPackageSet.Clear();
+            
             RepoManifest.Instance.LoadData();
             
             _systemPathInfos = RepoManifest.Instance.localPaths;
@@ -73,8 +83,8 @@ namespace NovaFramework.Editor.Installer
                 }
             }
             
-            //同步持久化数据
-            List<string> persistedPackageNames = DataManager.LoadPersistedSelectedPackages();
+            //同步已经配置的记录
+            List<string> persistedPackageNames = LoadSelectedPackagesTxt();
             if (persistedPackageNames != null)
             {
                 foreach (var pkg in _packageObjectList)
@@ -182,6 +192,114 @@ namespace NovaFramework.Editor.Installer
             }
 
             return recursivelyDependencies;
+        }
+        
+        private static List<string> LoadSelectedPackagesTxt()
+        {
+            if (!File.Exists(_selectedPackagesTxtPath))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                string content = File.ReadAllText(_selectedPackagesTxtPath).Trim();
+                if (string.IsNullOrEmpty(content))
+                {
+                    return new List<string>();
+                }
+
+                var lines = content.Split('\n');
+                var result = new List<string>();
+                foreach (var line in lines)
+                {
+                    string trimmed = line.Trim();
+                    if (!string.IsNullOrEmpty(trimmed))
+                    {
+                        result.Add(trimmed);
+                    }
+                }
+                return result;
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"读取包配置列表失败: {e.Message}");
+                return new List<string>();
+            }
+        }
+
+        public static void OneClickInstallPackages()
+        {
+            // 读取 selected_packages.txt
+            string txtPath = Path.Combine(Application.dataPath, "../NovaFrameworkData/selected_packages.txt").Replace("\\", "/");
+            if (!File.Exists(txtPath))
+            {
+                Logger.Warn("提示", $"未找到 selected_packages.txt，请先在Package安装中心生成包列表配置 {txtPath}", "确定");
+                return;
+            }
+
+            string content = File.ReadAllText(txtPath).Trim();
+            if (string.IsNullOrEmpty(content))
+            {
+                Logger.Warn("提示", "selected_packages.txt 为空，请先在Package安装中心生成包列表配置", "确定");
+                return;
+            }
+
+            // 解析包名列表
+            var packageNames = content.Split('\n')
+                .Select(line => line.Trim())
+                .Where(name => !string.IsNullOrEmpty(name))
+                .ToList();
+
+            if (packageNames.Count == 0)
+            {
+                Logger.Warn("提示", "没有需要安装的模块", "确定");
+                return;
+            }
+
+            // 查找对应的 PackageObject
+            var packagesToInstall = new List<PackageObject>();
+            foreach (var name in packageNames)
+            {
+                PackageObject pkg = PackageManager.GetPackageObjectByName(name);
+                if (pkg != null)
+                {
+                    packagesToInstall.Add(pkg);
+                }
+                else
+                {
+                    Logger.Warn($"[一键安装] 未在清单中找到包: {name}，跳过");
+                }
+            }
+
+            if (packagesToInstall.Count == 0)
+            {
+                Logger.Warn("提示", "txt中的包均未在清单中找到", "确定");
+                return;
+            }
+
+            string displayNames = string.Join("\n", packagesToInstall.Select(p => p.title));
+            if (!EditorUtility.DisplayDialog("确认一键安装",
+                    $"将要安装以下 {packagesToInstall.Count} 个模块:\n{displayNames}\n\n模块将下载到 NovaFrameworkData/framework_repo 并配置到 manifest.json",
+                    "确定", "取消"))
+            {
+                return;
+            }
+
+            // 逐个安装
+            var installedNames = new List<string>();
+            foreach (var package in packagesToInstall)
+            {
+                Logger.Info($"[一键安装] 开始安装模块: {package.name}");
+                GitManager.InstallPackage(package);
+                installedNames.Add(package.name);
+            }
+
+            Logger.Info($"[一键安装] 安装完成，共 {installedNames.Count} 个模块，正在刷新...");
+
+            UnityEditor.PackageManager.Client.Resolve();
+            AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+            CompilationPipeline.RequestScriptCompilation();
         }
     }
 }

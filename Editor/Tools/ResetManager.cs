@@ -108,18 +108,18 @@ namespace NovaFramework.Editor.Installer
         
         private static void ResetPackages()
         {
-            UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, false);
+            //UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, false);
             Debug.Log($"已重置安装完成标记文件: false");
             
             //跳过 com.novaframework.unity.core.common 包卸载
             foreach (var selectedPackageName in PackageManager.GetSelectedPackageNames())
             {
-                if (selectedPackageName != Constants.COMMON_PACKAGE_NAME)
+                if (selectedPackageName != Constants.LocalPackageNameOfCommonModule)
                 {
-                    GitManager.UninstallPackage(selectedPackageName);
+                    //GitManager.UninstallPackage(selectedPackageName);
                 }
             }
-            DataManager.ResetPersistedSelectedPackages();
+            //DataManager.ResetPersistedSelectedPackages();
         }
     }
 }

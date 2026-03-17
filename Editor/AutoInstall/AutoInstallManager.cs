@@ -1,13 +1,20 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
-using NovaFramework.Editor.Preference;
+using System.Reflection;
 using UnityEditor;
-using UnityEngine;
-using UnityEditor.SceneManagement;
-using UnityEngine.SceneManagement;
+using UnityEditor.Compilation;
 
 namespace NovaFramework.Editor.Installer
 {
+    internal enum InstallStep
+    {
+        None,
+        CheckEnvironment,    // 检查环境
+        InstallPackages,     // 安装包
+        Complete             // 完成
+    }
+    
     /// <summary>
     /// 自动安装流程入口，负责流程编排和域重载恢复
     /// 包安装逻辑见 PackageInstaller，InstallationStep 执行见 InstallationStepExecutor
@@ -55,65 +62,21 @@ namespace NovaFramework.Editor.Installer
             // 延迟到下一帧执行，让窗口先渲染出来
             EditorApplication.delayCall += () =>
             {
-                if (!CheckEnvironment())
-                    return;
-
                 SetStep(InstallStep.InstallPackages);
                 PackageInstaller.InstallSelectedPackages(AddLog, SetError);
             };
         }
 
-        /// <summary>
-        /// 域重载后自动检查是否有待完成的安装步骤
-        /// </summary>
-        [InitializeOnLoadMethod]
-        private static void OnDomainReload()
+        public static bool IsAlreadyInstalled()
         {
-            if (!SessionState.GetBool(Constants.SESSION_KEY_PENDING, false))
-                return;
-
-            SessionState.SetBool(Constants.SESSION_KEY_PENDING, false);
-            string packagesStr = SessionState.GetString(Constants.SESSION_KEY_STEP_PACKAGES, "");
-            SessionState.EraseString(Constants.SESSION_KEY_STEP_PACKAGES);
-
-            var packages = string.IsNullOrEmpty(packagesStr)
-                ? new List<string>()
-                : new List<string>(packagesStr.Split(','));
-
-            Logger.Info("[AutoInstall] 域重载完成，开始执行 InstallationStep");
-
-            EditorApplication.delayCall += () =>
+            string asmdefPath = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName(Constants.InstallerEditorAssemblyName);
+            if (string.IsNullOrEmpty(asmdefPath))
             {
-                _progressWindow = AutoInstallProgressWindow.Instance;
-                InstallationStepExecutor.ExecuteAllInstallMethod(packages, AddLog);
-                
-                //第一次安装
-                if (!IsAlreadyInstalled())
-                {
-                    SetStep(InstallStep.Complete);
-                    UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
-                }
-            };
-        }
-        
-        private static bool CheckEnvironment()
-        {
-            SetStep(InstallStep.CheckEnvironment);
-
-            if (IsAlreadyInstalled())
-            {
-                AddLog("检测到已安装完成，跳过安装流程");
-                SetStep(InstallStep.Complete);
+                Logger.Warn($"程序集 {Constants.InstallerEditorAssemblyName} 的asmdef路径为空");
                 return false;
             }
 
-            AddLog("环境检查通过，开始安装流程...");
             return true;
-        }
-
-        public static bool IsAlreadyInstalled()
-        {
-            return UserSettings.GetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY);
         }
 
         private static void OnProgressWindowClosed(bool completedSuccessfully)

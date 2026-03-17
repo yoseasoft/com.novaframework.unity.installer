@@ -35,30 +35,10 @@ namespace NovaFramework.Editor.Installer
         /// 安装模块的本地包名
         /// </summary>
         public const string LocalPackageNameOfInstallerModule = @"com.novaframework.unity.installer";
+        public const string LocalPackageNameOfCommonModule = PersistencePath.LocalPackageNameOfCommonModule;
 
-        // 默认资源路径
-        public static string DEFAULT_INSTALLER_ROOT_PATH
-        {
-            get
-            {
-                return PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(LocalPackageNameOfInstallerModule);
-            }
-        }
-        
-        // 配置文件路径常量
-
-        public static readonly string REPO_MANIFEST_PATH = Path.Combine(DEFAULT_INSTALLER_ROOT_PATH, "Editor Default Resources/Config/repo_manifest.xml").Replace("\\", "/");
-        
-        // 系统环境配置路径（相对，基于项目根目录）
-        public static readonly string SYSTEM_ENVIRONMENTS_PATH = "Assets/Resources/system_environments.json";
-        
-        // 系统环境配置绝对路径
-        public static readonly string SYSTEM_ENVIRONMENTS_ABSOLUTE_PATH =
-            Path.Combine(Path.GetDirectoryName(Application.dataPath), SYSTEM_ENVIRONMENTS_PATH).Replace("\\", "/");
-        
-        // Game ZIP文件路径常量
-        public static readonly string GAME_ZIP_PATH = Path.Combine(DEFAULT_INSTALLER_ROOT_PATH, "Editor Default Resources/BasePack/Game.zip").Replace("\\", "/");
-        
+        public const string InstallerEditorAssemblyName = "NovaEditor.Installer";
+       
         public const string SAVE_PACKAGE_RELATIVE_PATH = "NovaFrameworkData/framework_repo";
         public static readonly string FRAMEWORK_REPO_PATH = Path.Combine(Path.GetDirectoryName(Application.dataPath), SAVE_PACKAGE_RELATIVE_PATH).Replace("\\", "/");
         
@@ -68,11 +48,8 @@ namespace NovaFramework.Editor.Installer
         public const string NovaFramework_Installer_PACKAGE_NAME_LIST_KEY = "NovaFramework_Installer.PACKAGE_NAME_LIST_KEY";      // 安装包列表名
         public const string NovaFramework_Installer_INSTALLER_COMPLETE_KEY = "NovaFramework_Installer.INSTALLER_COMPLETE_MARK";     //完成安装的key
         public const string NovaFramework_Installer_PACKAGES_INSTALLED_KEY = "NovaFramework_Installer.PACKAGES_INSTALLED_MARK";  // 插件包安装完成标记
-        public const string SESSION_KEY_PENDING = "NovaFramework.AutoInstall.Pending";
-        public const string SESSION_KEY_STEP_PACKAGES = "NovaFramework.AutoInstall.StepPackages";
+        //public const string SESSION_KEY_PENDING = "NovaFramework.AutoInstall.Pending";
+        //public const string SESSION_KEY_STEP_PACKAGES = "NovaFramework.AutoInstall.StepPackages";
         
-        //用于git更新的包名
-        public const string INSTALLER_PACKAGE_NAME = LocalPackageNameOfInstallerModule;
-        public const string COMMON_PACKAGE_NAME = PersistencePath.LocalPackageNameOfCommonModule;
     } 
 }

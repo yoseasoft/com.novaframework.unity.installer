@@ -24,7 +24,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NovaFramework.Editor.Manifest;
-using NovaFramework.Editor.Preference;
 using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEngine;
@@ -231,35 +230,6 @@ namespace NovaFramework.Editor.Installer
                 GeneratePackageConfigList();
             }
 
-            // 安装所选模块按钮
-            // GUIStyle installButtonStyle = RichTextUtils.GetButtonTextOnlyStyle(Color.green);
-            // if (GUILayout.Button("安装所选模块", installButtonStyle, GUILayout.Height(35)))
-            // {
-            //     InstallSelectedModules();
-            // }
-            //
-            // // 一键更新所选包按钮
-            // GUIStyle updateButtonStyle = RichTextUtils.GetButtonTextOnlyStyle(Color.yellow);
-            // if (GUILayout.Button("一键更新所选包(Git)", updateButtonStyle, GUILayout.Height(35)))
-            // {
-            //     Debug.Log("一键更新所选包(Git)");
-            //
-            //     if (IsSamePackages(DataManager.LoadPersistedSelectedPackages(), PackageManager.GetSelectedPackageNames()))
-            //     {
-            //         if (EditorUtility.DisplayDialog("确认更新",
-            //                 "确定要更新所有选中的包吗？此操作将会从Git仓库拉取最新版本。",
-            //                 "确定", "取消"))
-            //         {
-            //             GitManager.UpdatePackages(PackageManager.GetSelectedPackageObjects());
-            //             DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
-            //         }
-            //     }
-            //     else
-            //     {
-            //         EditorUtility.DisplayDialog("更新失败", "所选包列表有修改，请先保存选择", "确定");
-            //     }
-            // }
-
             EditorGUILayout.EndHorizontal();
         }
 
@@ -289,58 +259,6 @@ namespace NovaFramework.Editor.Installer
 
             Logger.Info($"[PackageConfigurationView] 包配置列表已生成: {filePath}");
             EditorUtility.DisplayDialog("生成成功", $"已将 {selectedNames.Count} 个包名写入:\n{filePath}", "确定");
-        }
-
-        /// <summary>
-        /// 安装所选模块，下载到 NovaFrameworkData/framework_repo 并配置 manifest.json
-        /// </summary>
-        private void InstallSelectedModules()
-        {
-            var selectedPackages = PackageManager.GetSelectedPackageObjects();
-            // 过滤掉 common 和 installer（它们已在本地）
-            var packagesToInstall = selectedPackages
-                .Where(p => p.name != Constants.LocalPackageNameOfCommonModule &&
-                            p.name != Constants.LocalPackageNameOfInstallerModule)
-                .ToList();
-
-            if (packagesToInstall.Count == 0)
-            {
-                EditorUtility.DisplayDialog("提示", "没有需要安装的模块", "确定");
-                return;
-            }
-
-            string packageNames = string.Join("\n", packagesToInstall.Select(p => p.title));
-            if (!EditorUtility.DisplayDialog("确认安装",
-                    $"将要安装以下 {packagesToInstall.Count} 个模块:\n{packageNames}\n\n模块将下载到 NovaFrameworkData/framework_repo 并配置到 manifest.json",
-                    "确定", "取消"))
-            {
-                return;
-            }
-
-            var installedNames = new List<string>();
-            foreach (var package in packagesToInstall)
-            {
-                Logger.Info($"[PackageConfigurationView] 开始安装模块: {package.name}");
-                GitManager.InstallPackage(package);
-                installedNames.Add(package.name);
-            }
-
-            // 持久化选择状态
-            //DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
-
-            // 标记域重载后执行 InstallationStep
-            if (installedNames.Count > 0)
-            {
-                SessionState.SetBool(Constants.SESSION_KEY_PENDING, true);
-                SessionState.SetString(Constants.SESSION_KEY_STEP_PACKAGES, string.Join(",", installedNames));
-            }
-
-            Logger.Info($"[PackageConfigurationView] 模块安装完成，共 {installedNames.Count} 个，正在刷新...");
-
-            // 刷新 Package Manager 并触发编译
-            UnityEditor.PackageManager.Client.Resolve();
-            AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
-            CompilationPipeline.RequestScriptCompilation();
         }
 
         private bool IsSamePackages(List<string> oldPackages, List<string> newPackages)

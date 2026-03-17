@@ -1,10 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
-using NovaFramework.Editor.Preference;
+using System.Reflection;
 using UnityEditor;
-using UnityEngine;
-using UnityEditor.SceneManagement;
-using UnityEngine.SceneManagement;
+using UnityEditor.Compilation;
 
 namespace NovaFramework.Editor.Installer
 {
@@ -68,47 +67,16 @@ namespace NovaFramework.Editor.Installer
             };
         }
 
-        /// <summary>
-        /// 域重载后自动检查是否有待完成的安装步骤
-        /// </summary>
-        //[InitializeOnLoadMethod]
-        // private static void OnDomainReload()
-        // {
-        //     if (!SessionState.GetBool(Constants.SESSION_KEY_PENDING, false))
-        //         return;
-        //
-        //     SessionState.SetBool(Constants.SESSION_KEY_PENDING, false);
-        //     string packagesStr = SessionState.GetString(Constants.SESSION_KEY_STEP_PACKAGES, "");
-        //     SessionState.EraseString(Constants.SESSION_KEY_STEP_PACKAGES);
-        //
-        //     var packages = string.IsNullOrEmpty(packagesStr)
-        //         ? new List<string>()
-        //         : new List<string>(packagesStr.Split(','));
-        //
-        //     Logger.Info("[AutoInstall] 域重载完成，开始执行 InstallationStep");
-        //
-        //     EditorApplication.delayCall += () =>
-        //     {
-        //         _progressWindow = AutoInstallProgressWindow.Instance;
-        //         InstallationStepExecutor.ExecuteAllInstallMethod(packages, AddLog);
-        //         
-        //         //第一次安装
-        //         if (!IsAlreadyInstalled())
-        //         {
-        //             SetStep(InstallStep.Complete);
-        //             UserSettings.SetBool(Constants.NovaFramework_Installer_INSTALLER_COMPLETE_KEY, true);
-        //         }
-        //     };
-        // }
-
         public static bool IsAlreadyInstalled()
         {
-            if (Constants.DEFAULT_INSTALLER_ROOT_PATH != null && Constants.DEFAULT_COMMON_ROOT_PATH != null)
+            string asmdefPath = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName(Constants.InstallerEditorAssemblyName);
+            if (string.IsNullOrEmpty(asmdefPath))
             {
-                return true;
+                Logger.Warn($"程序集 {Constants.InstallerEditorAssemblyName} 的asmdef路径为空");
+                return false;
             }
 
-            return false;
+            return true;
         }
 
         private static void OnProgressWindowClosed(bool completedSuccessfully)

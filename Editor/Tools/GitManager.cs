@@ -23,6 +23,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using NovaFramework.Editor.Manifest;
 using UnityEngine;
@@ -68,9 +69,6 @@ namespace NovaFramework.Editor.Installer
         
         public static void UninstallPackage(string oldPkgName)
         {
-            // 先执行该包的 InstallationStep.Uninstall
-            //InstallationStepExecutor.ExecuteSingleUninstallMethod(oldPkgName);
-            
             string folderPath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, oldPkgName).Replace("\\","/");
             ForceDeleteDirectory(folderPath);
             PackageManifestUtils.RemovePackageFromManifest(oldPkgName);
@@ -92,18 +90,20 @@ namespace NovaFramework.Editor.Installer
                     return;
                 }
 
-                // 检查模块是否已在Assets下本地存在（开发者模式）
-                string localPath = PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(packageObject.name);
-                if (!string.IsNullOrEmpty(localPath) && !localPath.StartsWith(PersistencePath.LocalInstallPathOfNovaFrameworkRepositoryFolder))
+                string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageObject.name).Replace("\\","/");
+                if (PersistencePath.IsModuleAssemblyExists(packageObject.name))
                 {
-                    Logger.Warn($"[GitManager] 模块已在本地存在: {localPath}，跳过Git安装，直接执行InstallationStep");
-                    InstallationStepExecutor.ExecuteAllInstallMethod(new List<string> { packageObject.name }, msg => Logger.Info(msg));
+                    Logger.Warn($"[GitManager] 模块已在本地存在: 跳过Git安装,执行执行更新");
+                    packagePath = PersistencePath.FindModuleFolderByPackageName(packageObject.name);
+                    // if (packagePath.Contains(Constants.SAVE_PACKAGE_RELATIVE_PATH))
+                    // {
+                    //     UpdateSinglePackage(packageObject.name, packagePath);
+                    // }
+                    UpdateSinglePackage(packageObject.name, packagePath);
                     onComplete?.Invoke();
                     return;
                 }
-
-                string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageObject.name).Replace("\\","/");
-
+                
                 InstallPackageFromGit(packageObject, packagePath);
             }
             catch (Exception ex)
@@ -123,42 +123,42 @@ namespace NovaFramework.Editor.Installer
         /// </summary>
         /// <param name="oldPackages"></param>
         /// <param name="newPackages"></param>
-        public static void HandleSelectPackages(List<string> oldPackages, List<string> newPackages)
-        {
-            // 1. 找出需要删除的包（在旧列表中存在，但在新列表中不存在）
-            foreach (var oldPkgName in oldPackages)
-            {
-                if (!newPackages.Contains(oldPkgName))
-                {
-                    // 从旧列表中存在但不在新列表中的包需要被卸载
-                    UninstallPackage(oldPkgName);
-                }
-            }
-            
-            // 2. 找出需要安装的包（在新列表中存在，但在旧列表中不存在）
-            foreach (var newPkgName in newPackages)
-            {
-                if (!oldPackages.Contains(newPkgName))
-                {
-                    // 在新列表中存在但不在旧列表中的包需要被安装
-                    PackageObject packageObject = PackageManager.GetPackageObjectByName(newPkgName);
-                    if (packageObject != null && !string.IsNullOrEmpty(packageObject.gitRepositoryUrl))
-                    { 
-                        // 检查模块是否已在Assets下本地存在（开发者模式），如果是则跳过Git安装
-                        string localPath = PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(newPkgName);
-                        if (!string.IsNullOrEmpty(localPath) && !localPath.StartsWith(PersistencePath.LocalInstallPathOfNovaFrameworkRepositoryFolder))
-                        {
-                            Logger.Warn($"[GitManager] 模块已在本地存在: {localPath}，跳过Git安装，直接执行InstallationStep");
-                            InstallationStepExecutor.ExecuteAllInstallMethod(new List<string> { newPkgName }, msg => Logger.Info(msg));
-                            continue;
-                        }
-
-                        string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, newPkgName).Replace("\\", "/");
-                        InstallPackageFromGit(packageObject, packagePath);
-                    }
-                }
-            }
-        }
+        // public static void HandleSelectPackages(List<string> oldPackages, List<string> newPackages)
+        // {
+        //     // 1. 找出需要删除的包（在旧列表中存在，但在新列表中不存在）
+        //     foreach (var oldPkgName in oldPackages)
+        //     {
+        //         if (!newPackages.Contains(oldPkgName))
+        //         {
+        //             // 从旧列表中存在但不在新列表中的包需要被卸载
+        //             UninstallPackage(oldPkgName);
+        //         }
+        //     }
+        //     
+        //     // 2. 找出需要安装的包（在新列表中存在，但在旧列表中不存在）
+        //     foreach (var newPkgName in newPackages)
+        //     {
+        //         if (!oldPackages.Contains(newPkgName))
+        //         {
+        //             // 在新列表中存在但不在旧列表中的包需要被安装
+        //             PackageObject packageObject = PackageManager.GetPackageObjectByName(newPkgName);
+        //             if (packageObject != null && !string.IsNullOrEmpty(packageObject.gitRepositoryUrl))
+        //             { 
+        //                 // 检查模块是否已在Assets下本地存在（开发者模式），如果是则跳过Git安装
+        //                 string localPath = PersistencePath.CurrentUsingRepositoryUrlOfTargetModule(newPkgName);
+        //                 if (!string.IsNullOrEmpty(localPath) && !localPath.StartsWith(PersistencePath.LocalInstallPathOfNovaFrameworkRepositoryFolder))
+        //                 {
+        //                     Logger.Warn($"[GitManager] 模块已在本地存在: {localPath}，跳过Git安装，直接执行InstallationStep");
+        //                     InstallationStepExecutor.ExecuteAllInstallMethod(new List<string> { newPkgName }, msg => Logger.Info(msg));
+        //                     continue;
+        //                 }
+        //
+        //                 string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, newPkgName).Replace("\\", "/");
+        //                 InstallPackageFromGit(packageObject, packagePath);
+        //             }
+        //         }
+        //     }
+        // }
         
         /// <summary>
         /// 强制删除目录（适配Git/Unity场景，处理隐藏/只读/被占用文件）
@@ -274,10 +274,13 @@ namespace NovaFramework.Editor.Installer
             }
         }
 
-        public static void UpdateSinglePackage(string packageName)
+        public static void UpdateSinglePackage(string packageName, string packagePath = null)
         {
             // 获取包的存储路径
-            string packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageName).Replace("\\", "/");
+            if (packagePath == null)
+            { 
+                packagePath = Path.Combine(Constants.FRAMEWORK_REPO_PATH, packageName).Replace("\\", "/");
+            }
                     
             if (Directory.Exists(packagePath))
             {

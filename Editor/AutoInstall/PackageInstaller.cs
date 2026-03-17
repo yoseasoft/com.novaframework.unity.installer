@@ -81,7 +81,6 @@ namespace NovaFramework.Editor.Installer
                 InstallSinglePackage(packageName, addLog);
             }
 
-            //DataManager.SavePersistedSelectedPackages(PackageManager.GetSelectedPackageNames());
             RefreshProject(addLog);
         }
 
@@ -126,16 +125,6 @@ namespace NovaFramework.Editor.Installer
             string completionMessage = $"成功安装并完成 {_totalPackageCount} 个包的配置，工程已刷新";
             addLog(completionMessage);
             Logger.Info($"[AutoInstall] {completionMessage}");
-
-            // 标记待执行，存入需要执行 InstallationStep 的包名
-            //SessionState.SetBool(Constants.SESSION_KEY_PENDING, true);
-            //SessionState.SetString(Constants.SESSION_KEY_STEP_PACKAGES, string.Join(",", PackagesToInstall));
-
-            //addLog("正在编译程序集，请稍候...");
-            //Logger.Info("[AutoInstall] 触发编译，等待域重载后执行 InstallationStep");
-
-            //AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
-            //CompilationPipeline.RequestScriptCompilation();
         }
     }
 }

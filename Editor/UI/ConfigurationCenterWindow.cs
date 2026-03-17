@@ -56,9 +56,9 @@ namespace NovaFramework.Editor.Installer
 
             foreach (var pkg in selectedPackages)
             {
-                if (pkg.installationObject?.importModules == null) continue;
+                if (pkg.outputAssembliesObject?.localAssemblies == null) continue;
 
-                var configurableModules = pkg.installationObject.importModules
+                var configurableModules = pkg.outputAssembliesObject.localAssemblies
                     .Where(m => m.configurable)
                     .ToList();
 
